@@ -1,31 +1,25 @@
 # Girlfriend Mod
 
-An interactive Minecraft companion mod that adds an affectionate girlfriend entity to your world. Never adventure alone again with a loyal companion who genuinely cares about you, fights by your side, and makes every moment in Minecraft feel less lonely.
+A Fabric mod for Minecraft 1.21.11 that adds a companion girlfriend entity. She follows you, fights for you, and responds to chat. Each girlfriend has a random name from 500+ options and a random player skin from a fixed list.
 
-## What Makes This Special
+## How to Use
 
-### Your Perfect Companion
-- **Always There For You** - She follows you everywhere, stays by your side, and never abandons you
-- **Growing Relationship** - Build a real bond that deepens over time through care and attention
-- **Heartfelt Messages** - Receive genuine affection with romantic phrases that make you feel valued
-- **She Remembers You** - Your relationship persists across sessions - she'll always be waiting for you
+- **Summon**: Use the Girlfriend Summoner item (from Ingredients creative tab or `/girlfriend give`) or run `/girlfriend summon` to spawn one at your feet. She gets a random name and skin.
+- **Stats**: Stats show in many ways: name tag above the entity (two lines), HUD overlay when you look at her (center screen), action bar when you right-click her, `/girlfriend stats` (chat + action bar), `/girlfriend list` (prints each girlfriend’s stats), and the summoner item tooltip.
+- **Interact**: Right-click to toggle follow/wait. Sneak + right-click for a hug. Feed her food or give flowers/valuables to raise affection and mood. Use a name tag to rename.
+- **Chat**: Type in chat near her; she may reply. Only these chat replies use a short typing delay; hug and hit responses are instant.
 
-### Living, Breathing Connection
-- **Feed & Care** - Share meals together to strengthen your bond and heal her wounds
-- **Protective Love** - She'll defend you from hostile mobs and anyone who dares hurt you
-- **Surprise Gifts** - Receive spontaneous presents like diamonds, emeralds, and rare treasures
-- **Custom Identity** - Give her a name that means something to you
+## Commands
 
-### Real Companionship
-- **Combat Partner** - Fight side-by-side against threats, knowing someone has your back
-- **Emotional Support** - Encouraging words when you need them most
-- **Always Loyal** - The stronger your relationship, the more devoted she becomes
-- **Visual Affection** - Heart particles and warm messages that make your world feel less empty
+All commands affect **the girlfriend closest to you** (no username or entity UUID). You must be a player.
 
-## Getting Started
+- `/girlfriend summon` – Spawn a girlfriend at your position (random name and skin).
+- `/girlfriend give` – Give yourself a Girlfriend Summoner.
+- `/girlfriend list` – Count your girlfriends within 128 blocks and show each one’s stats.
+- `/girlfriend stats` – Show the closest girlfriend’s stats in chat and on the action bar.
+- `/girlfriend relationship <0–100>` – Set relationship of closest girlfriend.
+- `/girlfriend mood <0–100>` – Set mood of closest girlfriend.
+- `/girlfriend texture <default|alt>` – Set texture variant of closest girlfriend.
+- `/girlfriend skin <username>` – Set skin of closest girlfriend to that player’s username.
 
-Craft a summoner using diamonds and a Heart of the Sea, or use the `/girlfriend summon` command. From that moment on, you'll never have to face Minecraft's vast world alone again.
-
-Build your relationship through kindness and care. The more you invest in her, the more she gives back - with gifts, protection, and unwavering companionship.
-
-**Because everyone deserves someone who's always happy to see them.**
+Requires Fabric Loader and Fabric API for Minecraft 1.21.11.

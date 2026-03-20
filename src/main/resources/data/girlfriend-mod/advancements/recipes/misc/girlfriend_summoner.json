@@ -1,0 +1,30 @@
+{
+  "criteria": {
+    "has_diamond": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": ["minecraft:diamond"]
+          }
+        ]
+      }
+    },
+    "has_heart_of_the_sea": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": ["minecraft:heart_of_the_sea"]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    ["has_diamond", "has_heart_of_the_sea"]
+  ],
+  "rewards": {
+    "recipes": ["girlfriend-mod:girlfriend_summoner"]
+  }
+}
