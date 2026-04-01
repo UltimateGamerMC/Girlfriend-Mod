@@ -1,56 +1,56 @@
 package com.beckytidus.girlfriendmod.client.render;
 
 import com.beckytidus.girlfriendmod.entity.GirlFriendEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.BipedEntityRenderer;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.render.entity.model.EntityModelLayers;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.core.ClientAsset;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraft.world.entity.player.PlayerSkin;
+import net.minecraft.world.item.component.ResolvableProfile;
 
-public class GirlFriendEntityRenderer extends BipedEntityRenderer<GirlFriendEntity, GirlFriendEntityRenderState, GirlFriendEntityModel> {
-    private static final Identifier TEXTURE_DEFAULT = Identifier.of("girlfriend-mod", "entity/girlfriend");
-    private static final Identifier TEXTURE_ALT = Identifier.of("girlfriend-mod", "entity/girlfriend_alt");
-    private final EntityRendererFactory.Context ctx;
+@Environment(EnvType.CLIENT)
+public class GirlFriendEntityRenderer extends HumanoidMobRenderer<GirlFriendEntity, AvatarRenderState, PlayerModel> {
+    private static final Identifier TEXTURE_DEFAULT = Identifier.fromNamespaceAndPath("girlfriend-mod", "entity/girlfriend");
+    private static final Identifier TEXTURE_ALT = Identifier.fromNamespaceAndPath("girlfriend-mod", "entity/girlfriend_alt");
+    private final EntityRendererProvider.Context ctx;
 
-    public GirlFriendEntityRenderer(EntityRendererFactory.Context context) {
-        super(context, new GirlFriendEntityModel(context.getPart(EntityModelLayers.PLAYER), true), 0.5f);
+    public GirlFriendEntityRenderer(EntityRendererProvider.Context context) {
+        super(context, new PlayerModel(context.bakeLayer(net.minecraft.client.model.geom.ModelLayers.PLAYER_SLIM), true), new PlayerModel(context.bakeLayer(net.minecraft.client.model.geom.ModelLayers.PLAYER_SLIM), true), 0.5f);
         this.ctx = context;
     }
 
     @Override
-    public GirlFriendEntityRenderState createRenderState() {
-        return new GirlFriendEntityRenderState();
+    public AvatarRenderState createRenderState() {
+        return new AvatarRenderState();
     }
 
     @Override
-    protected boolean hasLabel(GirlFriendEntity entity, double squaredDistanceToCamera) {
+    protected boolean shouldShowName(GirlFriendEntity entity, double squaredDistanceToCamera) {
         if (squaredDistanceToCamera >= 4096.0) return false;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
         if (player == null) return false;
         return !entity.isInvisibleTo(player);
     }
 
     @Override
-    public void updateRenderState(GirlFriendEntity entity, GirlFriendEntityRenderState state, float tickDelta) {
-        super.updateRenderState(entity, state, tickDelta);
-        if (state.nameLabelPos == null) {
-            state.nameLabelPos = new Vec3d(0, entity.getHeight(), 0);
-        }
-        state.statsLabel = entity.getStatsDisplayText();
+    public void extractRenderState(GirlFriendEntity entity, AvatarRenderState state, float tickDelta) {
+        super.extractRenderState(entity, state, tickDelta);
         String skinName = entity.getSkinOwnerName();
         if (skinName != null && !skinName.isEmpty()) {
             try {
-                state.skinTextures = ctx.getPlayerSkinCache().get(ProfileComponent.ofDynamic(skinName)).getTextures();
+                state.skin = ctx.getPlayerSkinRenderCache().getOrDefault(ResolvableProfile.createUnresolved(skinName)).playerSkin();
             } catch (Exception e) {
                 applyDefaultTexture(state, entity);
             }
@@ -60,25 +60,19 @@ public class GirlFriendEntityRenderer extends BipedEntityRenderer<GirlFriendEnti
         int emoteType = entity.getEmoteType();
         int emoteTicks = entity.getEmoteTicks();
         if (emoteType == GirlFriendEntity.EMOTE_CROUCH && emoteTicks > 0) {
-            state.pose = EntityPose.CROUCHING;
-            state.isInSneakingPose = true;
+            state.isCrouching = true;
         } else if (emoteType == GirlFriendEntity.EMOTE_NOD && emoteTicks > 0) {
             float t = (20 - emoteTicks) + tickDelta;
-            state.pitch = MathHelper.sin(t * 0.8f) * 15f * (float) Math.PI / 180f;
+            state.xRot = Mth.sin(t * 0.8f) * 15f * (float) Math.PI / 180f;
         }
     }
 
     @Override
-    protected void renderLabelIfPresent(GirlFriendEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraState) {
-        if (state.displayName != null) {
-            queue.submitLabel(matrices, state.nameLabelPos, 0, state.displayName, !state.sneaking, state.light, state.squaredDistanceToCamera, cameraState);
-        }
-        if (state.statsLabel != null) {
-            queue.submitLabel(matrices, state.nameLabelPos, 9, state.statsLabel, !state.sneaking, state.light, state.squaredDistanceToCamera, cameraState);
-        }
+    protected void scale(AvatarRenderState state, PoseStack poseStack) {
+        poseStack.scale(0.9375F, 0.9375F, 0.9375F);
     }
 
-    private void applyDefaultTexture(PlayerEntityRenderState state, GirlFriendEntity entity) {
+    private void applyDefaultTexture(AvatarRenderState state, GirlFriendEntity entity) {
         String v = entity.getTextureVariant();
         Identifier tex;
         if ("alt".equals(v)) {
@@ -87,7 +81,7 @@ public class GirlFriendEntityRenderer extends BipedEntityRenderer<GirlFriendEnti
             try {
                 int n = Integer.parseInt(v);
                 if (n >= 1 && n <= 20) {
-                    tex = Identifier.of("girlfriend-mod", "entity/girlfriend_" + n);
+                    tex = Identifier.fromNamespaceAndPath("girlfriend-mod", "entity/girlfriend_" + n);
                 } else {
                     tex = TEXTURE_DEFAULT;
                 }
@@ -97,17 +91,11 @@ public class GirlFriendEntityRenderer extends BipedEntityRenderer<GirlFriendEnti
         } else {
             tex = TEXTURE_DEFAULT;
         }
-        state.skinTextures = new net.minecraft.entity.player.SkinTextures(
-            new net.minecraft.util.AssetInfo.TextureAssetInfo(tex),
-            null,
-            null,
-            net.minecraft.entity.player.PlayerSkinType.SLIM,
-            false
-        );
+        state.skin = new PlayerSkin(new ClientAsset.ResourceTexture(tex), null, null, PlayerModelType.SLIM, true);
     }
 
     @Override
-    public Identifier getTexture(GirlFriendEntityRenderState state) {
-        return state.skinTextures != null ? state.skinTextures.body().texturePath() : TEXTURE_DEFAULT;
+    public Identifier getTextureLocation(AvatarRenderState state) {
+        return state.skin.body().texturePath();
     }
 }

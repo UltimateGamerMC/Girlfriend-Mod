@@ -1,50 +1,57 @@
 package com.beckytidus.girlfriendmod.entity;
 
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LazyEntityReference;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.ai.goal.*;
-import net.minecraft.entity.passive.BeeEntity;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.Uuids;
-import net.minecraft.world.World;
-import net.minecraft.world.rule.GameRules;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EntityReference;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.gamerules.GameRules;
 import org.jetbrains.annotations.Nullable;
 
 import com.beckytidus.girlfriendmod.dialogue.DelayedChatReply;
-import net.minecraft.scoreboard.Team;
+import net.minecraft.world.scores.Team;
 import com.beckytidus.girlfriendmod.dialogue.HugAndHitResponses;
 import com.beckytidus.girlfriendmod.dialogue.WaitAndFollowLines;
 import com.beckytidus.girlfriendmod.registry.FemaleNames;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Optional;
 import java.util.UUID;
 
-public class GirlFriendEntity extends PathAwareEntity {
+public class GirlFriendEntity extends PathfinderMob {
     private static final int AGGRO_DECAY_TICKS = 6000;
     private static final int PHRASE_INTERVAL_TICKS = 600;
     private static final int GIFT_INTERVAL_TICKS = 1200;
@@ -77,12 +84,12 @@ public class GirlFriendEntity extends PathAwareEntity {
     private long angeredAtTick = -1;
     private String playerCustomName = "";
     @Nullable
-    private LazyEntityReference<LivingEntity> ownerRef;
+    private EntityReference<LivingEntity> ownerRef;
     private boolean isFollowing = true;
     private String textureVariant = "default";
     private String skinOwnerName = "";
-    private static final TrackedData<String> SKIN_OWNER_NAME = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.STRING);
-    private static final TrackedData<String> TEXTURE_VARIANT = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.STRING);
+    private static final EntityDataAccessor<String> SKIN_OWNER_NAME = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> TEXTURE_VARIANT = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.STRING);
     private int affection = 50;
     private int maxAffection = 100;
     private int hunger = 80;
@@ -97,147 +104,144 @@ public class GirlFriendEntity extends PathAwareEntity {
     private boolean wasFarFromOwner = true;
     private int lastRelationshipLevel = 0;
     private int catchUpCooldownTicks = 0;
-    private static final TrackedData<Boolean> SITTING = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<Integer> AFFECTION = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.INTEGER);
-    private static final TrackedData<Integer> HUNGER = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.INTEGER);
-    private static final TrackedData<Integer> EMOTE_TYPE = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.INTEGER);
-    private static final TrackedData<Integer> EMOTE_TICKS = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.INTEGER);
-    private static final TrackedData<Integer> RELATIONSHIP_LEVEL = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.INTEGER);
-    private static final TrackedData<Integer> MOOD_LEVEL = DataTracker.registerData(GirlFriendEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Boolean> SITTING = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> AFFECTION = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> HUNGER = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> EMOTE_TYPE = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> EMOTE_TICKS = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> RELATIONSHIP_LEVEL = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> MOOD_LEVEL = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
 
-    public GirlFriendEntity(EntityType<? extends PathAwareEntity> entityType, World world) {
-        super(entityType, world);
-        this.setCustomName(Text.literal("Girlfriend"));
+    public GirlFriendEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
+        super(entityType, level);
+        this.setCustomName(Component.literal("Girlfriend"));
         this.setCanPickUpLoot(true);
     }
 
-    public static DefaultAttributeContainer.Builder createGirlfriendAttributes() {
-        return PathAwareEntity.createMobAttributes()
-                .add(EntityAttributes.MAX_HEALTH, 40.0)
-                .add(EntityAttributes.MOVEMENT_SPEED, 0.3)
-                .add(EntityAttributes.FOLLOW_RANGE, 35.0)
-                .add(EntityAttributes.ATTACK_DAMAGE, 2.0);
-    }
-
-    @Override
-    protected void initGoals() {
-        this.goalSelector.add(0, new SwimGoal(this));
-        this.goalSelector.add(1, new MeleeAttackGoal(this, 1.0, false));
-        this.goalSelector.add(2, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
-        this.goalSelector.add(3, new LookAroundGoal(this));
-        this.goalSelector.add(4, new WanderToInterestGoal());
-        this.goalSelector.add(5, new WanderOffGoal());
-        this.goalSelector.add(6, new WanderAroundFarGoal(this, 0.8));
-        this.goalSelector.add(7, new FollowOwnerGoal());
-        this.goalSelector.add(8, new DefendOwnerGoal());
-
-        this.targetSelector.add(1, new GirlfriendRevengeGoal(this));
-        this.targetSelector.add(2, new ActiveTargetGoal<>(this, HostileEntity.class, true));
-    }
-
-    @Override
-    protected void initDataTracker(DataTracker.Builder builder) {
-        super.initDataTracker(builder);
-        builder.add(SKIN_OWNER_NAME, "");
-        builder.add(TEXTURE_VARIANT, "default");
-        builder.add(SITTING, false);
-        builder.add(AFFECTION, 50);
-        builder.add(HUNGER, 80);
-        builder.add(EMOTE_TYPE, 0);
-        builder.add(EMOTE_TICKS, 0);
-        builder.add(RELATIONSHIP_LEVEL, 0);
-        builder.add(MOOD_LEVEL, 50);
-    }
-
-    @Override
-    protected void writeCustomData(WriteView view) {
-        super.writeCustomData(view);
-        if (ownerRef != null) {
-            view.put("Owner", Uuids.INT_STREAM_CODEC, ownerRef.getUuid());
-        }
-        view.putInt("RelationshipLevel", relationshipLevel);
-        view.putString("CustomName", playerCustomName);
-        view.putBoolean("IsFollowing", isFollowing);
-        view.putLong("LastPhraseTick", lastPhraseTick);
-        view.putLong("LastGiftTick", lastGiftTick);
-        view.putLong("LastHealTick", lastHealTick);
-        view.putLong("AngeredAtTick", angeredAtTick);
-        view.putString("TextureVariant", textureVariant);
-        view.putBoolean("Sitting", isSitting);
-        view.putInt("MoodLevel", moodLevel);
-        view.putLong("LastSenseTick", lastSenseTick);
-        view.putString("SkinOwnerName", skinOwnerName);
-        view.putInt("Affection", affection);
-        view.putInt("Hunger", hunger);
-        view.putLong("LastHungerDecayTick", lastHungerDecayTick);
-        view.putLong("LastInteractionTick", lastInteractionTick);
-    }
-
-    @Override
-    protected void readCustomData(ReadView view) {
-        super.readCustomData(view);
-        Optional<UUID> ownerUuid = view.read("Owner", Uuids.INT_STREAM_CODEC);
-        if (ownerUuid.isPresent()) {
-            ownerRef = LazyEntityReference.ofUUID(ownerUuid.get());
-        }
-        relationshipLevel = view.getInt("RelationshipLevel", 0);
-        playerCustomName = view.getString("CustomName", "");
-        isFollowing = view.getBoolean("IsFollowing", true);
-        lastPhraseTick = view.getLong("LastPhraseTick", 0);
-        lastGiftTick = view.getLong("LastGiftTick", 0);
-        lastHealTick = view.getLong("LastHealTick", 0);
-        angeredAtTick = view.getLong("AngeredAtTick", -1);
-        textureVariant = view.getString("TextureVariant", "default");
-        isSitting = view.getBoolean("Sitting", false);
-        moodLevel = view.getInt("MoodLevel", 50);
-        lastSenseTick = view.getLong("LastSenseTick", 0);
-        skinOwnerName = view.getString("SkinOwnerName", "");
-        affection = view.getInt("Affection", 50);
-        hunger = view.getInt("Hunger", 80);
-        lastHungerDecayTick = view.getLong("LastHungerDecayTick", 0);
-        lastInteractionTick = view.getLong("LastInteractionTick", 0);
-        if (!getEntityWorld().isClient()) {
-            getDataTracker().set(SKIN_OWNER_NAME, skinOwnerName);
-            getDataTracker().set(TEXTURE_VARIANT, textureVariant);
-            getDataTracker().set(SITTING, isSitting);
-            getDataTracker().set(AFFECTION, affection);
-            getDataTracker().set(HUNGER, hunger);
-            getDataTracker().set(RELATIONSHIP_LEVEL, relationshipLevel);
-            getDataTracker().set(MOOD_LEVEL, moodLevel);
+    private static void sendOwnerSystem(Player owner, Component message) {
+        if (owner instanceof ServerPlayer sp) {
+            sp.sendSystemMessage(message);
         }
     }
 
+    public static AttributeSupplier.Builder createGirlfriendAttributes() {
+        return PathfinderMob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 40.0)
+                .add(Attributes.MOVEMENT_SPEED, 0.3)
+                .add(Attributes.FOLLOW_RANGE, 35.0)
+                .add(Attributes.ATTACK_DAMAGE, 2.0);
+    }
+
     @Override
-    public boolean canGather(net.minecraft.server.world.ServerWorld world, ItemStack stack) {
-        if (world.getGameRules().getValue(GameRules.DO_MOB_GRIEFING) != Boolean.FALSE && canPickUpLoot()) {
-            if (stack.isIn(ItemTags.HEAD_ARMOR) || stack.isIn(ItemTags.CHEST_ARMOR) || stack.isIn(ItemTags.LEG_ARMOR) || stack.isIn(ItemTags.FOOT_ARMOR)) return true;
-            if (stack.isIn(ItemTags.SWORDS) || stack.isIn(ItemTags.AXES) || stack.isIn(ItemTags.PICKAXES) || stack.isIn(ItemTags.SPEARS)) return true;
-            if (stack.isOf(Items.SHIELD) || stack.isOf(Items.BOW) || stack.isOf(Items.CROSSBOW) || stack.isOf(Items.TRIDENT)) return true;
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.0, false));
+        this.goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(3, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(4, new WanderToInterestGoal());
+        this.goalSelector.addGoal(5, new WanderOffGoal());
+        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.8));
+        this.goalSelector.addGoal(7, new FollowOwnerGoal());
+        this.goalSelector.addGoal(8, new DefendOwnerGoal());
+
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Monster.class, true));
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(SKIN_OWNER_NAME, "");
+        builder.define(TEXTURE_VARIANT, "default");
+        builder.define(SITTING, false);
+        builder.define(AFFECTION, 50);
+        builder.define(HUNGER, 80);
+        builder.define(EMOTE_TYPE, 0);
+        builder.define(EMOTE_TICKS, 0);
+        builder.define(RELATIONSHIP_LEVEL, 0);
+        builder.define(MOOD_LEVEL, 50);
+    }
+
+    @Override
+    protected void addAdditionalSaveData(ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        EntityReference.store(ownerRef, output, "Owner");
+        output.putInt("RelationshipLevel", relationshipLevel);
+        output.putString("CustomName", playerCustomName);
+        output.putBoolean("IsFollowing", isFollowing);
+        output.putLong("LastPhraseTick", lastPhraseTick);
+        output.putLong("LastGiftTick", lastGiftTick);
+        output.putLong("LastHealTick", lastHealTick);
+        output.putLong("AngeredAtTick", angeredAtTick);
+        output.putString("TextureVariant", textureVariant);
+        output.putBoolean("Sitting", isSitting);
+        output.putInt("MoodLevel", moodLevel);
+        output.putLong("LastSenseTick", lastSenseTick);
+        output.putString("SkinOwnerName", skinOwnerName);
+        output.putInt("Affection", affection);
+        output.putInt("Hunger", hunger);
+        output.putLong("LastHungerDecayTick", lastHungerDecayTick);
+        output.putLong("LastInteractionTick", lastInteractionTick);
+    }
+
+    @Override
+    protected void readAdditionalSaveData(ValueInput input) {
+        super.readAdditionalSaveData(input);
+        ownerRef = EntityReference.readWithOldOwnerConversion(input, "Owner", this.level());
+        relationshipLevel = input.getIntOr("RelationshipLevel", 0);
+        playerCustomName = input.getStringOr("CustomName", "");
+        isFollowing = input.getBooleanOr("IsFollowing", true);
+        lastPhraseTick = input.getLongOr("LastPhraseTick", 0);
+        lastGiftTick = input.getLongOr("LastGiftTick", 0);
+        lastHealTick = input.getLongOr("LastHealTick", 0);
+        angeredAtTick = input.getLongOr("AngeredAtTick", -1);
+        textureVariant = input.getStringOr("TextureVariant", "default");
+        isSitting = input.getBooleanOr("Sitting", false);
+        moodLevel = input.getIntOr("MoodLevel", 50);
+        lastSenseTick = input.getLongOr("LastSenseTick", 0);
+        skinOwnerName = input.getStringOr("SkinOwnerName", "");
+        affection = input.getIntOr("Affection", 50);
+        hunger = input.getIntOr("Hunger", 80);
+        lastHungerDecayTick = input.getLongOr("LastHungerDecayTick", 0);
+        lastInteractionTick = input.getLongOr("LastInteractionTick", 0);
+        if (!level().isClientSide()) {
+            getEntityData().set(SKIN_OWNER_NAME, skinOwnerName);
+            getEntityData().set(TEXTURE_VARIANT, textureVariant);
+            getEntityData().set(SITTING, isSitting);
+            getEntityData().set(AFFECTION, affection);
+            getEntityData().set(HUNGER, hunger);
+            getEntityData().set(RELATIONSHIP_LEVEL, relationshipLevel);
+            getEntityData().set(MOOD_LEVEL, moodLevel);
         }
-        return false;
+    }
+
+    @Override
+    public boolean wantsToPickUp(ServerLevel level, ItemStack stack) {
+        if (level.getGameRules().get(GameRules.MOB_GRIEFING) && canPickUpLoot()) {
+            if (stack.is(ItemTags.HEAD_ARMOR) || stack.is(ItemTags.CHEST_ARMOR) || stack.is(ItemTags.LEG_ARMOR) || stack.is(ItemTags.FOOT_ARMOR)) return true;
+            if (stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES) || stack.is(ItemTags.PICKAXES) || stack.is(ItemTags.SPEARS)) return true;
+            if (stack.is(Items.SHIELD) || stack.is(Items.BOW) || stack.is(Items.CROSSBOW) || stack.is(Items.TRIDENT)) return true;
+        }
+        return stack.is(ItemTags.HEAD_ARMOR) || stack.is(ItemTags.CHEST_ARMOR) || stack.is(ItemTags.LEG_ARMOR) || stack.is(ItemTags.FOOT_ARMOR)
+            || stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES) || stack.is(ItemTags.PICKAXES) || stack.is(ItemTags.SPEARS)
+            || stack.is(Items.SHIELD) || stack.is(Items.BOW) || stack.is(Items.CROSSBOW) || stack.is(Items.TRIDENT);
     }
 
     @Override
     @Nullable
-    public net.minecraft.registry.tag.TagKey<net.minecraft.item.Item> getPreferredWeapons() {
+    public net.minecraft.tags.TagKey<net.minecraft.world.item.Item> getPreferredWeaponType() {
         return ItemTags.SWORDS;
     }
 
-    @Override
-    public boolean canPickupItem(ItemStack stack) {
-        if (stack.isIn(ItemTags.HEAD_ARMOR) || stack.isIn(ItemTags.CHEST_ARMOR) || stack.isIn(ItemTags.LEG_ARMOR) || stack.isIn(ItemTags.FOOT_ARMOR)) return true;
-        if (stack.isIn(ItemTags.SWORDS) || stack.isIn(ItemTags.AXES) || stack.isIn(ItemTags.PICKAXES) || stack.isIn(ItemTags.SPEARS)) return true;
-        return stack.isOf(Items.SHIELD) || stack.isOf(Items.BOW) || stack.isOf(Items.CROSSBOW) || stack.isOf(Items.TRIDENT);
-    }
 
     @Override
-    public void onEquipStack(EquipmentSlot slot, ItemStack oldStack, ItemStack newStack) {
-        super.onEquipStack(slot, oldStack, newStack);
-        if (getEntityWorld().isClient()) return;
-        PlayerEntity owner = getOwner();
+    public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack newStack) {
+        super.onEquipItem(slot, oldStack, newStack);
+        if (level().isClientSide()) return;
+        Player owner = getOwner();
         if (owner != null && oldStack.isEmpty() && !newStack.isEmpty()) {
-            String itemName = newStack.getName().getString();
-            owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": Look what I found! I'm using this " + itemName + " now."), false);
+            String itemName = newStack.getHoverName().getString();
+            sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": Look what I found! I'm using this " + itemName + " now."));
             setMoodLevel(Math.min(maxMoodLevel, moodLevel + 5));
             spawnHeartParticles();
         }
@@ -251,17 +255,17 @@ public class GirlFriendEntity extends PathAwareEntity {
     }
 
     public void spawnHeartParticles() {
-        if (!(getEntityWorld() instanceof ServerWorld sw)) return;
+        if (!(level() instanceof ServerLevel sw)) return;
         for (int i = 0; i < 4; i++) {
-            double x = getX() + (getEntityWorld().getRandom().nextDouble() - 0.5) * getWidth();
-            double y = getY() + getHeight() * 0.8 + getEntityWorld().getRandom().nextDouble() * 0.2;
-            double z = getZ() + (getEntityWorld().getRandom().nextDouble() - 0.5) * getWidth();
-            sw.spawnParticles(ParticleTypes.HEART, x, y, z, 1, 0.2, 0.2, 0.2, 0.0);
+            double x = getX() + (level().getRandom().nextDouble() - 0.5) * getBbWidth();
+            double y = getY() + getBbHeight() * 0.8 + level().getRandom().nextDouble() * 0.2;
+            double z = getZ() + (level().getRandom().nextDouble() - 0.5) * getBbWidth();
+            sw.sendParticles(ParticleTypes.HEART, x, y, z, 1, 0.2, 0.2, 0.2, 0.0);
         }
     }
 
     private long getWorldTime() {
-        return this.getEntityWorld() instanceof ServerWorld ? ((ServerWorld) this.getEntityWorld()).getLevelProperties().getTime() : 0;
+        return this.level() instanceof ServerLevel ? ((ServerLevel) this.level()).getGameTime() : 0;
     }
 
     public boolean isAngeredAtOwner() {
@@ -292,40 +296,40 @@ public class GirlFriendEntity extends PathAwareEntity {
         private static final int CATCH_UP_MAX_TICKS = 40;
 
         @Override
-        public boolean canStart() {
-            PlayerEntity owner = getOwner();
+        public boolean canUse() {
+            Player owner = getOwner();
             if (owner == null || !isFollowing || owner.isSpectator() || isSitting) return false;
             if (isAngeredAtOwner()) return false;
             return true;
         }
 
         @Override
-        public boolean shouldContinue() {
-            return canStart();
+        public boolean canContinueToUse() {
+            return canUse();
         }
 
         @Override
         public void tick() {
-            PlayerEntity owner = getOwner();
+            Player owner = getOwner();
             if (owner == null) return;
             if (catchUpCooldownTicks > 0) {
                 catchUpCooldownTicks--;
                 return;
             }
-            double distance = GirlFriendEntity.this.squaredDistanceTo(owner);
+            double distance = GirlFriendEntity.this.distanceToSqr(owner);
             if (distance > MAX_DISTANCE * MAX_DISTANCE) {
-                GirlFriendEntity.this.getNavigation().startMovingTo(owner, 1.2);
+                GirlFriendEntity.this.getNavigation().moveTo(owner, 1.2);
                 GirlFriendEntity.this.setSprinting(true);
-                catchUpCooldownTicks = GirlFriendEntity.this.getEntityWorld().getRandom().nextBetween(CATCH_UP_MIN_TICKS, CATCH_UP_MAX_TICKS);
+                catchUpCooldownTicks = GirlFriendEntity.this.level().getRandom().nextInt(CATCH_UP_MAX_TICKS - CATCH_UP_MIN_TICKS + 1) + CATCH_UP_MIN_TICKS;
             } else if (distance > MIN_DISTANCE * MIN_DISTANCE) {
-                GirlFriendEntity.this.getNavigation().startMovingTo(owner, 1.0);
+                GirlFriendEntity.this.getNavigation().moveTo(owner, 1.0);
                 GirlFriendEntity.this.setSprinting(false);
-                catchUpCooldownTicks = GirlFriendEntity.this.getEntityWorld().getRandom().nextBetween(CATCH_UP_MIN_TICKS, CATCH_UP_MAX_TICKS);
+                catchUpCooldownTicks = GirlFriendEntity.this.level().getRandom().nextInt(CATCH_UP_MAX_TICKS - CATCH_UP_MIN_TICKS + 1) + CATCH_UP_MIN_TICKS;
             } else {
                 GirlFriendEntity.this.getNavigation().stop();
                 GirlFriendEntity.this.setSprinting(false);
             }
-            GirlFriendEntity.this.getLookControl().lookAt(owner, 10.0F, GirlFriendEntity.this.getMaxHeadRotation());
+            GirlFriendEntity.this.getLookControl().setLookAt(owner, 10.0F, GirlFriendEntity.this.getMaxHeadXRot());
         }
     }
 
@@ -333,14 +337,14 @@ public class GirlFriendEntity extends PathAwareEntity {
         private static final double DEFEND_RANGE = 15.0;
 
         @Override
-        public boolean canStart() {
-            PlayerEntity owner = getOwner();
+        public boolean canUse() {
+            Player owner = getOwner();
             if (owner == null || owner.isSpectator() || getTarget() != null) return false;
-            if (GirlFriendEntity.this.squaredDistanceTo(owner) > DEFEND_RANGE * DEFEND_RANGE) return false;
-            for (LivingEntity entity : GirlFriendEntity.this.getEntityWorld().getEntitiesByClass(LivingEntity.class, GirlFriendEntity.this.getBoundingBox().expand(DEFEND_RANGE), e -> {
+            if (GirlFriendEntity.this.distanceToSqr(owner) > DEFEND_RANGE * DEFEND_RANGE) return false;
+            for (LivingEntity entity : GirlFriendEntity.this.level().getEntitiesOfClass(LivingEntity.class, GirlFriendEntity.this.getBoundingBox().inflate(DEFEND_RANGE), e -> {
                 if (e == GirlFriendEntity.this || e == owner) return false;
-                if (e instanceof MobEntity mob && mob.getTarget() == owner) return true;
-                return e instanceof HostileEntity hostile && hostile.getTarget() == owner;
+                if (e instanceof Mob mob && mob.getTarget() == owner) return true;
+                return e instanceof Monster hostile && hostile.getTarget() == owner;
             })) {
                 return true;
             }
@@ -349,21 +353,21 @@ public class GirlFriendEntity extends PathAwareEntity {
 
         @Override
         public void start() {
-            PlayerEntity owner = getOwner();
+            Player owner = getOwner();
             if (owner == null) return;
-            for (LivingEntity entity : GirlFriendEntity.this.getEntityWorld().getEntitiesByClass(LivingEntity.class, GirlFriendEntity.this.getBoundingBox().expand(DEFEND_RANGE), e -> {
+            for (LivingEntity entity : GirlFriendEntity.this.level().getEntitiesOfClass(LivingEntity.class, GirlFriendEntity.this.getBoundingBox().inflate(DEFEND_RANGE), e -> {
                 if (e == GirlFriendEntity.this || e == owner) return false;
-                if (e instanceof MobEntity mob && mob.getTarget() == owner) return true;
-                return e instanceof HostileEntity hostile && hostile.getTarget() == owner;
+                if (e instanceof Mob mob && mob.getTarget() == owner) return true;
+                return e instanceof Monster hostile && hostile.getTarget() == owner;
             })) {
                 GirlFriendEntity.this.setTarget(entity);
-                owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": I'll protect you!"), false);
+                sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": I'll protect you!"));
                 break;
             }
         }
 
         @Override
-        public boolean shouldContinue() {
+        public boolean canContinueToUse() {
             return getTarget() != null && getOwner() != null;
         }
     }
@@ -372,41 +376,41 @@ public class GirlFriendEntity extends PathAwareEntity {
         private static final double RANGE = 10.0;
         private static final int INTEREST_CHANCE = 200;
         @Override
-        public boolean canStart() {
-            PlayerEntity owner = getOwner();
+        public boolean canUse() {
+            Player owner = getOwner();
             if (owner == null || !isFollowing || isSitting || isAngeredAtOwner() || getTarget() != null) return false;
-            if (GirlFriendEntity.this.squaredDistanceTo(owner) > 20 * 20) return false;
-            if (GirlFriendEntity.this.getNavigation().isFollowingPath()) return false;
-            return GirlFriendEntity.this.getEntityWorld().getRandom().nextInt(INTEREST_CHANCE) == 0 && findInterestTarget() != null;
+            if (GirlFriendEntity.this.distanceToSqr(owner) > 20 * 20) return false;
+            if (!GirlFriendEntity.this.getNavigation().isDone()) return false;
+            return GirlFriendEntity.this.level().getRandom().nextInt(INTEREST_CHANCE) == 0 && findInterestTarget() != null;
         }
 
         @Override
         public void start() {
             BlockPos target = findInterestTarget();
             if (target != null) {
-                GirlFriendEntity.this.getNavigation().startMovingTo(target.getX() + 0.5, target.getY(), target.getZ() + 0.5, 0.6);
+                GirlFriendEntity.this.getNavigation().moveTo(target.getX() + 0.5, target.getY(), target.getZ() + 0.5, 0.6);
             }
         }
 
         @Override
-        public boolean shouldContinue() {
-            return GirlFriendEntity.this.getNavigation().isFollowingPath() && !GirlFriendEntity.this.getNavigation().isIdle();
+        public boolean canContinueToUse() {
+            return !GirlFriendEntity.this.getNavigation().isDone();
         }
 
         private BlockPos findInterestTarget() {
-            World world = GirlFriendEntity.this.getEntityWorld();
-            BlockPos center = GirlFriendEntity.this.getBlockPos();
+            Level level = GirlFriendEntity.this.level();
+            BlockPos center = GirlFriendEntity.this.blockPosition();
             int r = (int) RANGE;
-            BlockPos.Mutable mutable = new BlockPos.Mutable();
+            BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
             BlockPos nearest = null;
             double nearestDist = Double.MAX_VALUE;
             for (int x = -r; x <= r; x++) {
                 for (int y = -3; y <= 3; y++) {
                     for (int z = -r; z <= r; z++) {
                         mutable.set(center.getX() + x, center.getY() + y, center.getZ() + z);
-                        BlockState state = world.getBlockState(mutable);
-                        if (state.isIn(BlockTags.FLOWERS) || state.isOf(Blocks.BEEHIVE) || state.isOf(Blocks.BEE_NEST)) {
-                            double d = GirlFriendEntity.this.squaredDistanceTo(mutable.getX() + 0.5, mutable.getY(), mutable.getZ() + 0.5);
+                        BlockState state = level.getBlockState(mutable);
+                        if (state.is(BlockTags.FLOWERS) || state.is(Blocks.BEEHIVE) || state.is(Blocks.BEE_NEST)) {
+                            double d = GirlFriendEntity.this.distanceToSqr(mutable.getX() + 0.5, mutable.getY(), mutable.getZ() + 0.5);
                             if (d < nearestDist && d > 4) {
                                 nearestDist = d;
                                 nearest = new BlockPos(mutable.getX(), mutable.getY(), mutable.getZ());
@@ -416,10 +420,10 @@ public class GirlFriendEntity extends PathAwareEntity {
                 }
             }
             if (nearest != null) return nearest;
-            var bees = world.getEntitiesByClass(BeeEntity.class, GirlFriendEntity.this.getBoundingBox().expand(RANGE), e -> e.isAlive());
+            var bees = level.getEntitiesOfClass(Bee.class, GirlFriendEntity.this.getBoundingBox().inflate(RANGE), e -> e.isAlive());
             if (!bees.isEmpty()) {
-                BeeEntity bee = bees.get(world.getRandom().nextInt(bees.size()));
-                return bee.getBlockPos();
+                Bee bee = bees.get(level.getRandom().nextInt(bees.size()));
+                return bee.blockPosition();
             }
             return null;
         }
@@ -433,11 +437,11 @@ public class GirlFriendEntity extends PathAwareEntity {
         private int wanderTicks = 0;
 
         @Override
-        public boolean canStart() {
-            PlayerEntity owner = getOwner();
+        public boolean canUse() {
+            Player owner = getOwner();
             if (owner == null || !isFollowing || isSitting || isAngeredAtOwner() || getTarget() != null) return false;
-            if (GirlFriendEntity.this.squaredDistanceTo(owner) < MIN_DIST * MIN_DIST) return false;
-            return GirlFriendEntity.this.getEntityWorld().getRandom().nextInt(WANDER_CHANCE) == 0;
+            if (GirlFriendEntity.this.distanceToSqr(owner) < MIN_DIST * MIN_DIST) return false;
+            return GirlFriendEntity.this.level().getRandom().nextInt(WANDER_CHANCE) == 0;
         }
 
         @Override
@@ -446,70 +450,58 @@ public class GirlFriendEntity extends PathAwareEntity {
             double x = GirlFriendEntity.this.getX();
             double y = GirlFriendEntity.this.getY();
             double z = GirlFriendEntity.this.getZ();
-            double angle = GirlFriendEntity.this.getEntityWorld().getRandom().nextDouble() * Math.PI * 2;
-            double dist = MIN_DIST + GirlFriendEntity.this.getEntityWorld().getRandom().nextDouble() * (MAX_DIST - MIN_DIST);
+            double angle = GirlFriendEntity.this.level().getRandom().nextDouble() * Math.PI * 2;
+            double dist = MIN_DIST + GirlFriendEntity.this.level().getRandom().nextDouble() * (MAX_DIST - MIN_DIST);
             double tx = x + Math.cos(angle) * dist;
             double tz = z + Math.sin(angle) * dist;
-            BlockPos blockPos = BlockPos.ofFloored(tx, y, tz);
-            if (GirlFriendEntity.this.getNavigation().startMovingTo(blockPos.getX(), blockPos.getY(), blockPos.getZ(), 0.7)) {
+            BlockPos blockPos = BlockPos.containing(tx, y, tz);
+            if (GirlFriendEntity.this.getNavigation().moveTo(blockPos.getX(), blockPos.getY(), blockPos.getZ(), 0.7)) {
             }
         }
 
         @Override
-        public boolean shouldContinue() {
+        public boolean canContinueToUse() {
             if (wanderTicks++ > MAX_WANDER_TICKS) return false;
             if (getTarget() != null || isAngeredAtOwner()) return false;
-            return GirlFriendEntity.this.getNavigation().isFollowingPath();
+            return !GirlFriendEntity.this.getNavigation().isDone();
         }
     }
 
-    private static class GirlfriendRevengeGoal extends RevengeGoal {
-        public GirlfriendRevengeGoal(PathAwareEntity mob) {
-            super(mob);
-        }
-
-        @Override
-        public boolean shouldContinue() {
-            GirlFriendEntity gf = (GirlFriendEntity) this.mob;
-            if (gf.getTarget() == null) return false;
-            return super.shouldContinue();
-        }
-    }
 
     @Override
     public void tick() {
-        if (!this.getEntityWorld().isClient()) {
-            PlayerEntity owner = getOwner();
+        if (!this.level().isClientSide()) {
+            Player owner = getOwner();
             if (owner != null && isFollowing && !isSitting && !isAngeredAtOwner()) {
-                double distSq = owner.squaredDistanceTo(this);
+                double distSq = owner.distanceToSqr(this);
                 if (distSq > TELEPORT_DISTANCE * TELEPORT_DISTANCE) {
-                    setPosition(owner.getX(), owner.getY(), owner.getZ());
+                    setPos(owner.getX(), owner.getY(), owner.getZ());
                 }
             }
         }
         super.tick();
-        if (this.getEntityWorld().isClient()) return;
+        if (this.level().isClientSide()) return;
 
         if (playerCustomName.isEmpty()) {
-            setPlayerCustomName(FemaleNames.pickRandom(getEntityWorld().getRandom()));
+            setPlayerCustomName(FemaleNames.pickRandom(level().getRandom()));
         }
         if (skinOwnerName.isEmpty() && ("default".equals(textureVariant) || textureVariant.isEmpty())) {
-            setTextureVariant(com.beckytidus.girlfriendmod.registry.GirlfriendSkins.pickRandomTextureVariant(getEntityWorld().getRandom()));
+            setTextureVariant(com.beckytidus.girlfriendmod.registry.GirlfriendSkins.pickRandomTextureVariant(level().getRandom()));
         }
 
         tickAggroDecay();
 
-        PlayerEntity owner = getOwner();
+        Player owner = getOwner();
         if (owner != null) {
-            setPersistent();
+            setPersistenceRequired();
             long now = getWorldTime();
 
             if (emoteTicks > 0) {
                 emoteTicks--;
                 if (emoteTicks <= 0) emoteType = EMOTE_NONE;
-                if (!getEntityWorld().isClient()) {
-                    getDataTracker().set(EMOTE_TICKS, emoteTicks);
-                    if (emoteTicks <= 0) getDataTracker().set(EMOTE_TYPE, EMOTE_NONE);
+                if (!level().isClientSide()) {
+                    getEntityData().set(EMOTE_TICKS, emoteTicks);
+                    if (emoteTicks <= 0) getEntityData().set(EMOTE_TYPE, EMOTE_NONE);
                 }
             }
             if (hugKissCooldown > 0) hugKissCooldown--;
@@ -518,39 +510,39 @@ public class GirlFriendEntity extends PathAwareEntity {
                 lastHungerDecayTick = now;
             }
             if (!isAngeredAtOwner()) {
-                double distToOwner = owner.squaredDistanceTo(GirlFriendEntity.this);
+                double distToOwner = owner.distanceToSqr(GirlFriendEntity.this);
                 if (wasFarFromOwner && distToOwner < 64.0 && emoteTicks <= 0 && getTarget() == null) {
                     wasFarFromOwner = false;
                     triggerEmote(EMOTE_WAVE, 30);
-                    owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": Hey! Over here!"), false);
+                    sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": Hey! Over here!"));
                 }
                 if (distToOwner > 100.0) wasFarFromOwner = true;
                 if (distToOwner < HUG_KISS_RANGE * HUG_KISS_RANGE && hugKissCooldown <= 0 && getTarget() == null) {
-                    if (this.getEntityWorld().getRandom().nextFloat() < 0.004f) {
+                    if (this.level().getRandom().nextFloat() < 0.004f) {
                         hugKissCooldown = HUG_KISS_COOLDOWN_TICKS;
-                        boolean doKiss = this.getEntityWorld().getRandom().nextBoolean();
+                        boolean doKiss = this.level().getRandom().nextBoolean();
                         triggerEmote(doKiss ? EMOTE_KISS : EMOTE_HUG, 40);
-                        owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": " + (doKiss ? "*kisses you*" : "*hugs you tightly*")), false);
+                        sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": " + (doKiss ? "*kisses you*" : "*hugs you tightly*")));
                         spawnHeartParticles();
                         addAffection(1);
                     }
                 }
-                if (emoteTicks <= 0 && this.getEntityWorld().getRandom().nextFloat() < 0.003f) {
-                    float r = this.getEntityWorld().getRandom().nextFloat();
+                if (emoteTicks <= 0 && this.level().getRandom().nextFloat() < 0.003f) {
+                    float r = this.level().getRandom().nextFloat();
                     if (moodLevel >= 70 && affection >= 60 && r < 0.25f) triggerEmote(EMOTE_DANCE, 60);
-                    else if (r < 0.5f) triggerEmote(this.getEntityWorld().getRandom().nextBoolean() ? EMOTE_NOD : EMOTE_CROUCH, 20);
+                    else if (r < 0.5f) triggerEmote(this.level().getRandom().nextBoolean() ? EMOTE_NOD : EMOTE_CROUCH, 20);
                 }
                 int phraseInterval = Math.max(600, 900 - relationshipLevel * 2);
-                if (now - lastPhraseTick >= phraseInterval && this.getEntityWorld().getRandom().nextFloat() < 0.05f) {
+                if (now - lastPhraseTick >= phraseInterval && this.level().getRandom().nextFloat() < 0.05f) {
                     sayRandomPhrase();
                     lastPhraseTick = now;
                 }
                 int giftInterval = Math.max(1800, 2400 - relationshipLevel * 4);
-                if (now - lastGiftTick >= giftInterval && this.getEntityWorld().getRandom().nextFloat() < 0.05f) {
-                    if (this.getEntityWorld().getRandom().nextBoolean()) {
+                if (now - lastGiftTick >= giftInterval && this.level().getRandom().nextFloat() < 0.05f) {
+                    if (this.level().getRandom().nextBoolean()) {
                         giveRandomGift();
                     } else {
-                        owner.sendMessage(Text.literal("♥ Girlfriend thought of you."), false);
+                        sendOwnerSystem(owner, Component.literal("♥ Girlfriend thought of you."));
                     }
                     lastGiftTick = now;
                 }
@@ -562,13 +554,13 @@ public class GirlFriendEntity extends PathAwareEntity {
                     trySenseNearby(owner, now);
                     lastSenseTick = now;
                 }
-                if (now - lastParticleTick >= PARTICLE_INTERVAL_TICKS && moodLevel >= 60 && this.getEntityWorld().getRandom().nextFloat() < 0.2f) {
+                if (now - lastParticleTick >= PARTICLE_INTERVAL_TICKS && moodLevel >= 60 && this.level().getRandom().nextFloat() < 0.2f) {
                     spawnHeartParticles();
                     lastParticleTick = now;
                 }
             }
-            if (getTarget() != null && getEntityWorld() instanceof ServerWorld sw && getEntityWorld().getRandom().nextFloat() < 0.08f) {
-                sw.spawnParticles(ParticleTypes.SWEEP_ATTACK, getX(), getY() + getHeight() * 0.5, getZ(), 1, 0.2, 0.2, 0.2, 0.0);
+            if (getTarget() != null && level() instanceof ServerLevel sw && level().getRandom().nextFloat() < 0.08f) {
+                sw.sendParticles(ParticleTypes.SWEEP_ATTACK, getX(), getY() + getBbHeight() * 0.5, getZ(), 1, 0.2, 0.2, 0.2, 0.0);
                 lastParticleTick = now;
             }
             if (relationshipLevel > lastRelationshipLevel) {
@@ -580,8 +572,8 @@ public class GirlFriendEntity extends PathAwareEntity {
                     else if (relationshipLevel >= 75) celebrations = new String[]{"We're so close now!", "I trust you completely!", "You mean the world to me!", "Best partners ever!"};
                     else if (relationshipLevel >= 50) celebrations = new String[]{"We're really bonding!", "I'm so happy with you!", "You're amazing!", "Halfway to forever!"};
                     if (owner != null) {
-                        String msg = celebrations[getEntityWorld().getRandom().nextInt(celebrations.length)];
-                        owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": " + msg), false);
+                        String msg = celebrations[level().getRandom().nextInt(celebrations.length)];
+                        sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": " + msg));
                         for (int i = 0; i < 8; i++) spawnHeartParticles();
                     }
                 }
@@ -594,10 +586,10 @@ public class GirlFriendEntity extends PathAwareEntity {
         }
     }
 
-    private void trySenseNearby(PlayerEntity owner, long now) {
-        if (!(getEntityWorld() instanceof ServerWorld sw)) return;
-        var hostiles = getEntityWorld().getEntitiesByClass(HostileEntity.class, getBoundingBox().expand(SENSE_RANGE), LivingEntity::isAlive);
-        if (!hostiles.isEmpty() && getEntityWorld().getRandom().nextFloat() < 0.08f) {
+    private void trySenseNearby(Player owner, long now) {
+        if (!(level() instanceof ServerLevel sw)) return;
+        var hostiles = level().getEntitiesOfClass(Monster.class, getBoundingBox().inflate(SENSE_RANGE), LivingEntity::isAlive);
+        if (!hostiles.isEmpty() && level().getRandom().nextFloat() < 0.08f) {
             String[] sense = {
                 "I sense something hostile nearby!",
                 "There's danger in the area...",
@@ -605,13 +597,13 @@ public class GirlFriendEntity extends PathAwareEntity {
                 "I feel a threat nearby!",
                 "Something dangerous is approaching!"
             };
-            String msg = sense[getEntityWorld().getRandom().nextInt(sense.length)];
-            owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": " + msg), false);
+            String msg = sense[level().getRandom().nextInt(sense.length)];
+            sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": " + msg));
             spawnHeartParticles();
         }
-        var players = getEntityWorld().getEntitiesByClass(PlayerEntity.class, getBoundingBox().expand(SENSE_RANGE), p -> p != owner && p.isAlive());
-        if (!players.isEmpty() && getEntityWorld().getRandom().nextFloat() < 0.04f) {
-            owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": I sense another player nearby."), false);
+        var players = level().getEntitiesOfClass(Player.class, getBoundingBox().inflate(SENSE_RANGE), p -> p != owner && p.isAlive());
+        if (!players.isEmpty() && level().getRandom().nextFloat() < 0.04f) {
+            sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": I sense another player nearby."));
         }
     }
 
@@ -620,12 +612,12 @@ public class GirlFriendEntity extends PathAwareEntity {
         if (!playerCustomName.isEmpty()) {
             displayName = playerCustomName;
         }
-        this.setCustomName(Text.literal(displayName));
+        this.setCustomName(Component.literal(displayName));
     }
 
-    public boolean canInteract(PlayerEntity player) {
-        if (getEntityWorld().isClient()) return true;
-        long now = getEntityWorld() instanceof ServerWorld sw ? sw.getLevelProperties().getTime() : 0;
+    public boolean canInteract(Player player) {
+        if (level().isClientSide()) return true;
+        long now = level() instanceof ServerLevel sw ? sw.getGameTime() : 0;
         return now - lastInteractionTick >= INTERACTION_COOLDOWN_TICKS;
     }
 
@@ -633,8 +625,8 @@ public class GirlFriendEntity extends PathAwareEntity {
         this.lastInteractionTick = tick;
     }
 
-    public Text getStatsDisplayText() {
-        return Text.literal("Lv." + relationshipLevel + "  ♥" + getMoodLevel() + "  Aff:" + getAffection() + "  Hunger:" + getHunger() + "  HP:" + (int) getHealth() + "/" + (int) getMaxHealth());
+    public Component getStatsDisplayText() {
+        return Component.literal("Lv." + relationshipLevel + "  ♥" + getMoodLevel() + "  Aff:" + getAffection() + "  Hunger:" + getHunger() + "  HP:" + (int) getHealth() + "/" + (int) getMaxHealth());
     }
 
 
@@ -652,16 +644,16 @@ public class GirlFriendEntity extends PathAwareEntity {
             "Every moment with you is precious", "You brighten my world",
             "I love your laugh", "You inspire me daily", "Together we're unstoppable!"
         };
-        PlayerEntity owner = getOwner();
+        Player owner = getOwner();
         if (owner != null) {
-            String phrase = phrases[this.getEntityWorld().getRandom().nextInt(phrases.length)];
-            owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": " + phrase), false);
-            addRelationship(2 + this.getEntityWorld().getRandom().nextInt(2));
+            String phrase = phrases[this.level().getRandom().nextInt(phrases.length)];
+            sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": " + phrase));
+            addRelationship(2 + this.level().getRandom().nextInt(2));
         }
     }
 
     private void giveRandomGift() {
-        PlayerEntity owner = getOwner();
+        Player owner = getOwner();
         if (owner != null) {
             String[] gifts = {
                 "gives you a gift!", "found something for you!",
@@ -669,12 +661,12 @@ public class GirlFriendEntity extends PathAwareEntity {
                 "made this just for you!", "thought of you!",
                 "picked this out for you!", "brought you something!"
             };
-            String giftPhrase = gifts[this.getEntityWorld().getRandom().nextInt(gifts.length)];
-            owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + " " + giftPhrase), false);
+            String giftPhrase = gifts[this.level().getRandom().nextInt(gifts.length)];
+            sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + " " + giftPhrase));
             addRelationship(3);
             ItemStack gift = getRandomGiftItem();
-            if (!owner.getInventory().insertStack(gift)) {
-                owner.dropItem(gift, false);
+            if (!owner.getInventory().add(gift)) {
+                owner.drop(gift, false);
             }
         }
     }
@@ -689,73 +681,73 @@ public class GirlFriendEntity extends PathAwareEntity {
             new ItemStack(Items.GOLDEN_APPLE),
             new ItemStack(Items.COOKED_BEEF)
         };
-        return possibleGifts[this.getEntityWorld().getRandom().nextInt(possibleGifts.length)].copy();
+        return possibleGifts[this.level().getRandom().nextInt(possibleGifts.length)].copy();
     }
 
-    public PlayerEntity getOwner() {
-        if (ownerRef == null) return null;
-        LivingEntity e = ownerRef.getEntityByClass(this.getEntityWorld(), LivingEntity.class);
-        return e instanceof PlayerEntity pe ? pe : null;
+    public Player getOwner() {
+        return EntityReference.getLivingEntity(ownerRef, level()) instanceof Player p ? p : null;
     }
 
-    public void setOwner(PlayerEntity player) {
-        this.ownerRef = player != null ? LazyEntityReference.of((LivingEntity) player) : null;
+    public void setOwner(Player player) {
+        this.ownerRef = player != null ? EntityReference.of((LivingEntity) player) : null;
         if (player != null) {
-            setPersistent();
+            setPersistenceRequired();
         }
     }
 
     public void feedEntity(ItemStack stack) {
-        if (stack.isOf(Items.APPLE) || stack.isOf(Items.GOLDEN_APPLE)) {
+        if (stack.is(Items.APPLE) || stack.is(Items.GOLDEN_APPLE)) {
             this.setHealth(Math.min(this.getHealth() + 5.0f, this.getMaxHealth()));
-            addRelationship(3 + this.getEntityWorld().getRandom().nextInt(2));
+            addRelationship(3 + this.level().getRandom().nextInt(2));
             setHunger(Math.min(maxHunger, hunger + 15));
             addAffection(4);
-            if (getOwner() != null) {
-                getOwner().sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": Thank you for the food!"), false);
+            Player o = getOwner();
+            if (o != null) {
+                sendOwnerSystem(o, Component.literal("♥ " + getDisplayNameForChat() + ": Thank you for the food!"));
             }
-        } else if (stack.isOf(Items.WHEAT) || stack.isOf(Items.BREAD)) {
+        } else if (stack.is(Items.WHEAT) || stack.is(Items.BREAD)) {
             this.setHealth(Math.min(this.getHealth() + 2.0f, this.getMaxHealth()));
             addRelationship(3);
             setHunger(Math.min(maxHunger, hunger + 8));
             addAffection(2);
-        } else if (stack.isOf(Items.CARROT) || stack.isOf(Items.POTATO) || stack.isOf(Items.BAKED_POTATO)) {
+        } else if (stack.is(Items.CARROT) || stack.is(Items.POTATO) || stack.is(Items.BAKED_POTATO)) {
             this.setHealth(Math.min(this.getHealth() + 3.0f, this.getMaxHealth()));
-            addRelationship(3 + this.getEntityWorld().getRandom().nextInt(2));
+            addRelationship(3 + this.level().getRandom().nextInt(2));
             setHunger(Math.min(maxHunger, hunger + 10));
             addAffection(3);
-        } else if (stack.isOf(Items.PUMPKIN_PIE) || stack.isOf(Items.CAKE)) {
+        } else if (stack.is(Items.PUMPKIN_PIE) || stack.is(Items.CAKE)) {
             this.setHealth(Math.min(this.getHealth() + 6.0f, this.getMaxHealth()));
             addRelationship(4);
             setHunger(maxHunger);
             setMoodLevel(Math.min(maxMoodLevel, moodLevel + 8));
             addAffection(5);
-            if (getOwner() != null) {
-                getOwner().sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": Mmm, delicious!"), false);
+            Player o = getOwner();
+            if (o != null) {
+                sendOwnerSystem(o, Component.literal("♥ " + getDisplayNameForChat() + ": Mmm, delicious!"));
                 spawnHeartParticles();
             }
         }
     }
 
     public int getRelationshipLevel() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(RELATIONSHIP_LEVEL) : relationshipLevel;
+        return level() != null && level().isClientSide() ? getEntityData().get(RELATIONSHIP_LEVEL) : relationshipLevel;
     }
 
-    public void setRelationshipLevel(int level) {
-        this.relationshipLevel = Math.min(Math.max(0, level), maxRelationshipLevel);
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) {
-            getDataTracker().set(RELATIONSHIP_LEVEL, relationshipLevel);
+    public void setRelationshipLevel(int value) {
+        this.relationshipLevel = Math.min(Math.max(0, value), maxRelationshipLevel);
+        if (level() != null && !level().isClientSide()) {
+            getEntityData().set(RELATIONSHIP_LEVEL, relationshipLevel);
         }
     }
 
     public int getMoodLevel() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(MOOD_LEVEL) : moodLevel;
+        return level() != null && level().isClientSide() ? getEntityData().get(MOOD_LEVEL) : moodLevel;
     }
 
-    public void setMoodLevel(int level) {
-        this.moodLevel = Math.min(Math.max(0, level), maxMoodLevel);
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) {
-            getDataTracker().set(MOOD_LEVEL, moodLevel);
+    public void setMoodLevel(int value) {
+        this.moodLevel = Math.min(Math.max(0, value), maxMoodLevel);
+        if (level() != null && !level().isClientSide()) {
+            getEntityData().set(MOOD_LEVEL, moodLevel);
         }
     }
 
@@ -777,34 +769,34 @@ public class GirlFriendEntity extends PathAwareEntity {
 
     public void setTextureVariant(String variant) {
         this.textureVariant = variant != null ? variant : "default";
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) {
-            getDataTracker().set(TEXTURE_VARIANT, this.textureVariant);
+        if (level() != null && !level().isClientSide()) {
+            getEntityData().set(TEXTURE_VARIANT, this.textureVariant);
         }
     }
 
     public String getTextureVariant() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(TEXTURE_VARIANT) : textureVariant;
+        return level() != null && level().isClientSide() ? getEntityData().get(TEXTURE_VARIANT) : textureVariant;
     }
 
     public String getSkinOwnerName() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(SKIN_OWNER_NAME) : skinOwnerName;
+        return level() != null && level().isClientSide() ? getEntityData().get(SKIN_OWNER_NAME) : skinOwnerName;
     }
 
     public void setSkinOwnerName(String name) {
         this.skinOwnerName = name != null ? name : "";
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) {
-            getDataTracker().set(SKIN_OWNER_NAME, this.skinOwnerName);
+        if (level() != null && !level().isClientSide()) {
+            getEntityData().set(SKIN_OWNER_NAME, this.skinOwnerName);
         }
     }
 
     public int getAffection() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(AFFECTION) : affection;
+        return level() != null && level().isClientSide() ? getEntityData().get(AFFECTION) : affection;
     }
 
     public void setAffection(int value) {
         this.affection = Math.min(Math.max(0, value), maxAffection);
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) {
-            getDataTracker().set(AFFECTION, this.affection);
+        if (level() != null && !level().isClientSide()) {
+            getEntityData().set(AFFECTION, this.affection);
         }
     }
 
@@ -813,39 +805,39 @@ public class GirlFriendEntity extends PathAwareEntity {
     }
 
     public int getHunger() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(HUNGER) : hunger;
+        return level() != null && level().isClientSide() ? getEntityData().get(HUNGER) : hunger;
     }
 
     public void setHunger(int value) {
         this.hunger = Math.min(Math.max(0, value), maxHunger);
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) {
-            getDataTracker().set(HUNGER, this.hunger);
+        if (level() != null && !level().isClientSide()) {
+            getEntityData().set(HUNGER, this.hunger);
         }
     }
 
     public int getEmoteType() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(EMOTE_TYPE) : emoteType;
+        return level() != null && level().isClientSide() ? getEntityData().get(EMOTE_TYPE) : emoteType;
     }
 
     public int getEmoteTicks() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(EMOTE_TICKS) : emoteTicks;
+        return level() != null && level().isClientSide() ? getEntityData().get(EMOTE_TICKS) : emoteTicks;
     }
 
     public void triggerEmote(int type, int durationTicks) {
         this.emoteType = type;
         this.emoteTicks = durationTicks;
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) {
-            getDataTracker().set(EMOTE_TYPE, emoteType);
-            getDataTracker().set(EMOTE_TICKS, emoteTicks);
+        if (level() != null && !level().isClientSide()) {
+            getEntityData().set(EMOTE_TYPE, emoteType);
+            getEntityData().set(EMOTE_TICKS, emoteTicks);
         }
     }
 
     public void toggle() {
         this.isFollowing = !this.isFollowing;
-        PlayerEntity owner = getOwner();
+        Player owner = getOwner();
         if (owner != null) {
             String msg = this.isFollowing ? WaitAndFollowLines.pickFollowYou(this) : WaitAndFollowLines.pickWaitHere(this);
-            owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": " + msg), false);
+            sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": " + msg));
         }
     }
 
@@ -855,18 +847,18 @@ public class GirlFriendEntity extends PathAwareEntity {
 
     public void setSitting(boolean sitting) {
         this.isSitting = sitting;
-        if (getEntityWorld() != null && !getEntityWorld().isClient()) getDataTracker().set(SITTING, isSitting);
+        if (level() != null && !level().isClientSide()) getEntityData().set(SITTING, isSitting);
     }
 
     public boolean isSitting() {
-        return getEntityWorld() != null && getEntityWorld().isClient() ? getDataTracker().get(SITTING) : isSitting;
+        return level() != null && level().isClientSide() ? getEntityData().get(SITTING) : isSitting;
     }
 
     public void toggleSit() {
         setSitting(!isSitting);
-        PlayerEntity owner = getOwner();
+        Player owner = getOwner();
         if (owner != null) {
-            owner.sendMessage(Text.literal("♥ " + getDisplayNameForChat() + ": " + (isSitting ? "I'll sit here for a bit." : "I'm up! Let's go!")), false);
+            sendOwnerSystem(owner, Component.literal("♥ " + getDisplayNameForChat() + ": " + (isSitting ? "I'll sit here for a bit." : "I'm up! Let's go!")));
         }
     }
 
@@ -875,8 +867,8 @@ public class GirlFriendEntity extends PathAwareEntity {
     }
 
     public void requestTeleport(double x, double y, double z) {
-        if (getEntityWorld() instanceof ServerWorld) {
-            teleport(x, y, z, true);
+        if (level() instanceof ServerLevel) {
+            teleportTo(x, y, z);
         }
     }
 
@@ -886,52 +878,44 @@ public class GirlFriendEntity extends PathAwareEntity {
     }
 
     @Override
-    public boolean damage(ServerWorld world, DamageSource source, float amount) {
-        PlayerEntity owner = getOwner();
-        if (owner != null && source.getAttacker() instanceof PlayerEntity attacker) {
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        Player owner = getOwner();
+        if (owner != null && source.getEntity() instanceof Player attacker) {
             if (attacker == owner) {
                 addRelationship(-10);
                 setTarget(owner);
                 angeredAtTick = getWorldTime();
-                if (owner instanceof ServerPlayerEntity spe) {
+                if (owner instanceof ServerPlayer spe) {
                     DelayedChatReply.sendImmediate(spe, this, HugAndHitResponses.pickHitByOwner(this), false);
                 }
             } else {
                 addRelationship(-5);
-                if (owner instanceof ServerPlayerEntity spe) {
+                if (owner instanceof ServerPlayer spe) {
                     DelayedChatReply.sendImmediate(spe, this, HugAndHitResponses.pickHitByOther(this), false);
                 }
             }
-        } else if (source.getAttacker() instanceof LivingEntity attacker && owner != null) {
+        } else if (source.getEntity() instanceof LivingEntity attacker && owner != null) {
             setTarget(attacker);
             angeredAtTick = getWorldTime();
-            if (owner instanceof ServerPlayerEntity spe) {
+            if (owner instanceof ServerPlayer spe) {
                 DelayedChatReply.sendImmediate(spe, this, HugAndHitResponses.pickHitByOther(this), false);
             }
         }
 
-        boolean result = super.damage(world, source, amount);
+        boolean result = super.hurtServer(level, source, amount);
 
         if (result) {
             setMoodLevel(Math.max(0, moodLevel - 5));
         }
         if (this.getHealth() <= 0 && owner != null) {
-            owner.sendMessage(Text.literal("No! " + getDisplayNameForChat() + " has fallen..."), false);
+            sendOwnerSystem(owner, Component.literal("No! " + getDisplayNameForChat() + " has fallen..."));
         }
 
         return result;
     }
 
     @Override
-    protected void updatePostDeath() {
-        super.updatePostDeath();
-        if (this.deathTime >= 20 && !this.getEntityWorld().isClient() && !this.isRemoved()) {
-            this.discard();
-        }
-    }
-
-    @Override
-    public boolean canImmediatelyDespawn(double distanceSquared) {
-        return getOwner() == null && !isPersistent();
+    public boolean removeWhenFarAway(double distanceSquared) {
+        return getOwner() == null && !isPersistenceRequired();
     }
 }

@@ -1,50 +1,53 @@
 package com.beckytidus.girlfriendmod.item;
 
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
 import com.beckytidus.girlfriendmod.entity.GirlFriendEntity;
 import com.beckytidus.girlfriendmod.registry.EntityRegistry;
 import com.beckytidus.girlfriendmod.registry.FemaleNames;
 import com.beckytidus.girlfriendmod.registry.GirlfriendSkins;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
 
 import java.util.function.Consumer;
 
 public class GirlFriendSummonerItem extends Item {
-    public GirlFriendSummonerItem(Settings settings) {
+    public GirlFriendSummonerItem(Properties settings) {
         super(settings);
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (!world.isClient()) {
+    public InteractionResult use(Level level, Player user, InteractionHand hand) {
+        if (!level.isClientSide()) {
             if (EntityRegistry.GIRLFRIEND != null) {
-                GirlFriendEntity girlfriend = new GirlFriendEntity(EntityRegistry.GIRLFRIEND, world);
-                girlfriend.setPosition(user.getX(), user.getY(), user.getZ());
+                GirlFriendEntity girlfriend = new GirlFriendEntity(EntityRegistry.GIRLFRIEND, level);
+                girlfriend.setPos(user.getX(), user.getY(), user.getZ());
                 girlfriend.setOwner(user);
-                girlfriend.setPlayerCustomName(FemaleNames.pickRandom(world.getRandom()));
-                girlfriend.setTextureVariant(GirlfriendSkins.pickRandomTextureVariant(world.getRandom()));
-                world.spawnEntity(girlfriend);
+                girlfriend.setPlayerCustomName(FemaleNames.pickRandom(level.getRandom()));
+                girlfriend.setTextureVariant(GirlfriendSkins.pickRandomTextureVariant(level.getRandom()));
+                level.addFreshEntity(girlfriend);
 
-                user.sendMessage(Text.literal("GirlFriend has been summoned!"), false);
+                if (user instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.literal("GirlFriend has been summoned!"));
+                }
 
                 if (!user.isCreative()) {
-                    user.getStackInHand(hand).decrement(1);
+                    user.getItemInHand(hand).shrink(1);
                 }
-                return ActionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, Item.TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> textConsumer, TooltipType type) {
-        textConsumer.accept(Text.literal("Summons a girlfriend (random texture 1-20). Stats: Lv, ♥Mood, Affection, Hunger, HP"));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> textConsumer, TooltipFlag type) {
+        textConsumer.accept(Component.literal("Summons a girlfriend (random texture 1-20). Stats: Lv, Mood, Affection, Hunger, HP"));
     }
 }

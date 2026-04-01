@@ -1,6 +1,6 @@
 package com.beckytidus.girlfriendmod.registry;
 
-import net.minecraft.util.math.random.Random;
+import net.minecraft.util.RandomSource;
 
 import java.util.List;
 
@@ -15,11 +15,11 @@ public final class GirlfriendSkins {
 
     private static final int TEXTURE_COUNT = 20;
 
-    public static String pickRandom(Random random) {
+    public static String pickRandom(RandomSource random) {
         return SKIN_OWNERS.get(random.nextInt(SKIN_OWNERS.size()));
     }
 
-    public static String pickRandomTextureVariant(Random random) {
-        return String.valueOf(random.nextBetween(1, TEXTURE_COUNT));
+    public static String pickRandomTextureVariant(RandomSource random) {
+        return String.valueOf(random.nextInt(TEXTURE_COUNT) + 1);
     }
 }

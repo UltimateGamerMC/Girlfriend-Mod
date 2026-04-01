@@ -1,6 +1,6 @@
 package com.beckytidus.girlfriendmod.registry;
 
-import net.minecraft.util.math.random.Random;
+import net.minecraft.util.RandomSource;
 
 import java.util.List;
 
@@ -83,7 +83,7 @@ public final class FemaleNames {
         "Wrenley", "Wynne", "Xena", "Yaretzi", "Zariah", "Zaylee", "Zelda", "Zhavia", "Zola", "Zora"
     );
 
-    public static String pickRandom(Random random) {
+    public static String pickRandom(RandomSource random) {
         return NAMES.get(random.nextInt(NAMES.size()));
     }
 }

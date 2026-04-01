@@ -424,14 +424,14 @@ public final class HugAndHitResponses {
     };
 
     public static String pickHug(GirlFriendEntity gf) {
-        return HUG[gf.getEntityWorld().getRandom().nextInt(HUG.length)];
+        return HUG[gf.level().getRandom().nextInt(HUG.length)];
     }
 
     public static String pickHitByOwner(GirlFriendEntity gf) {
-        return HIT_BY_OWNER[gf.getEntityWorld().getRandom().nextInt(HIT_BY_OWNER.length)];
+        return HIT_BY_OWNER[gf.level().getRandom().nextInt(HIT_BY_OWNER.length)];
     }
 
     public static String pickHitByOther(GirlFriendEntity gf) {
-        return HIT_BY_OTHER[gf.getEntityWorld().getRandom().nextInt(HIT_BY_OTHER.length)];
+        return HIT_BY_OTHER[gf.level().getRandom().nextInt(HIT_BY_OTHER.length)];
     }
 }

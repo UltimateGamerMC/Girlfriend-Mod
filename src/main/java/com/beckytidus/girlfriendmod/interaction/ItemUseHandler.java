@@ -1,36 +1,38 @@
 package com.beckytidus.girlfriendmod.interaction;
 
-import net.fabricmc.fabric.api.event.player.UseItemCallback;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
 import com.beckytidus.girlfriendmod.entity.GirlFriendEntity;
 import com.beckytidus.girlfriendmod.registry.EntityRegistry;
 import com.beckytidus.girlfriendmod.registry.ItemRegistry;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 public class ItemUseHandler {
     public static void register() {
         UseItemCallback.EVENT.register((player, world, hand) -> {
-            ItemStack stack = player.getStackInHand(hand);
+            ItemStack stack = player.getItemInHand(hand);
 
-            if (stack.getItem() == ItemRegistry.GIRLFRIEND_SUMMONER && !world.isClient()) {
+            if (stack.getItem() == ItemRegistry.GIRLFRIEND_SUMMONER && !world.isClientSide()) {
                 GirlFriendEntity girlfriend = new GirlFriendEntity(EntityRegistry.GIRLFRIEND, world);
-                girlfriend.setPosition(player.getX(), player.getY(), player.getZ());
+                girlfriend.setPos(player.getX(), player.getY(), player.getZ());
                 girlfriend.setOwner(player);
-                world.spawnEntity(girlfriend);
+                world.addFreshEntity(girlfriend);
 
-                player.sendMessage(Text.literal("♥ GirlFriend has been summoned!"), false);
+                if (player instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.literal("♥ GirlFriend has been summoned!"));
+                }
 
                 if (!player.isCreative()) {
-                    stack.decrement(1);
+                    stack.shrink(1);
                 }
-                return ActionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
 
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         });
     }
 }

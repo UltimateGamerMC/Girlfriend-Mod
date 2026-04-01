@@ -2,16 +2,17 @@ package com.beckytidus.girlfriendmod.interaction;
 
 import com.beckytidus.girlfriendmod.dialogue.DelayedChatReply;
 import com.beckytidus.girlfriendmod.dialogue.HugAndHitResponses;
-import net.fabricmc.fabric.api.event.player.UseEntityCallback;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
 import com.beckytidus.girlfriendmod.entity.GirlFriendEntity;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 
 public class EntityInteractionHandler {
     public static void register() {
@@ -19,71 +20,73 @@ public class EntityInteractionHandler {
             if (entity instanceof GirlFriendEntity gf) {
                 return handleGirlFriendInteraction(player, gf, hand);
             }
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         });
     }
 
-    public static ActionResult handleGirlFriendInteraction(PlayerEntity player, GirlFriendEntity girlfriend, Hand hand) {
-        if (hand != Hand.MAIN_HAND) return ActionResult.PASS;
-        if (!girlfriend.canInteract(player)) return ActionResult.PASS;
+    public static InteractionResult handleGirlFriendInteraction(Player player, GirlFriendEntity girlfriend, InteractionHand hand) {
+        if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+        if (!girlfriend.canInteract(player)) return InteractionResult.PASS;
         boolean isOwner = girlfriend.getOwner() == player;
-        if (player.getStackInHand(hand).isEmpty()) {
-            if (player instanceof ServerPlayerEntity spe) {
-                spe.sendMessage(girlfriend.getStatsDisplayText(), true);
+        if (player.getItemInHand(hand).isEmpty()) {
+            if (player instanceof ServerPlayer spe) {
+                spe.sendSystemMessage(girlfriend.getStatsDisplayText(), true);
             }
-            if (player.isSneaking() && isOwner && !girlfriend.isAngeredAtOwner()) {
+            if (player.isCrouching() && isOwner && !girlfriend.isAngeredAtOwner()) {
                 handleDeepInteraction(player, girlfriend);
             } else {
                 girlfriend.toggle();
             }
-            girlfriend.setLastInteractionTick(player.getEntityWorld().getTime());
-            return ActionResult.SUCCESS;
+            girlfriend.setLastInteractionTick(player.level() instanceof ServerLevel sl ? sl.getGameTime() : 0);
+            return InteractionResult.SUCCESS;
         }
 
-        ItemStack stack = player.getStackInHand(hand);
+        ItemStack stack = player.getItemInHand(hand);
         if (isFood(stack)) {
             girlfriend.feedEntity(stack);
-            girlfriend.setLastInteractionTick(player.getEntityWorld().getTime());
-            if (!player.isCreative()) stack.decrement(1);
-            return ActionResult.SUCCESS;
+            girlfriend.setLastInteractionTick(player.level() instanceof ServerLevel sl ? sl.getGameTime() : 0);
+            if (!player.isCreative()) stack.shrink(1);
+            return InteractionResult.SUCCESS;
         }
         if (isGift(stack)) {
             girlfriend.addAffection(5);
             girlfriend.setMoodLevel(Math.min(100, girlfriend.getMoodLevel() + 5));
             girlfriend.spawnHeartParticles();
-            player.sendMessage(Text.literal("♥ " + girlfriend.getDisplayNameForChat() + ": " + getGiftResponse(girlfriend)), false);
-            girlfriend.setLastInteractionTick(player.getEntityWorld().getTime());
-            if (!player.isCreative()) stack.decrement(1);
-            return ActionResult.SUCCESS;
+            if (player instanceof ServerPlayer spe) {
+                spe.sendSystemMessage(Component.literal("♥ " + girlfriend.getDisplayNameForChat() + ": " + getGiftResponse(girlfriend)));
+            }
+            girlfriend.setLastInteractionTick(player.level() instanceof ServerLevel sl ? sl.getGameTime() : 0);
+            if (!player.isCreative()) stack.shrink(1);
+            return InteractionResult.SUCCESS;
         }
-        if (stack.isOf(Items.NAME_TAG)) {
-            String name = stack.getName().getString();
+        if (stack.is(Items.NAME_TAG)) {
+            String name = stack.getHoverName().getString();
             if (name.isEmpty() || name.equals("Name Tag")) name = "Girlfriend";
             girlfriend.setPlayerCustomName(name);
-            girlfriend.setLastInteractionTick(player.getEntityWorld().getTime());
-            if (!player.isCreative()) stack.decrement(1);
-            return ActionResult.SUCCESS;
+            girlfriend.setLastInteractionTick(player.level() instanceof ServerLevel sl ? sl.getGameTime() : 0);
+            if (!player.isCreative()) stack.shrink(1);
+            return InteractionResult.SUCCESS;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
-    private static void handleDeepInteraction(PlayerEntity player, GirlFriendEntity girlfriend) {
+    private static void handleDeepInteraction(Player player, GirlFriendEntity girlfriend) {
         int mood = girlfriend.getMoodLevel();
         int hunger = girlfriend.getHunger();
-        float roll = girlfriend.getEntityWorld().getRandom().nextFloat();
+        float roll = girlfriend.level().getRandom().nextFloat();
         if (roll < 0.25f) girlfriend.triggerEmote(GirlFriendEntity.EMOTE_HUG, 50);
         else if (roll < 0.5f) girlfriend.triggerEmote(GirlFriendEntity.EMOTE_KISS, 40);
         girlfriend.addAffection(2);
         girlfriend.setMoodLevel(Math.min(100, mood + 3));
         if (hunger < 40) {
-            if (player.getEntityWorld().isClient()) return;
-            if (player instanceof ServerPlayerEntity spe) {
-                spe.sendMessage(Text.literal("♥ " + girlfriend.getDisplayNameForChat() + ": I'm a little hungry..."), false);
+            if (player.level().isClientSide()) return;
+            if (player instanceof ServerPlayer spe) {
+                spe.sendSystemMessage(Component.literal("♥ " + girlfriend.getDisplayNameForChat() + ": I'm a little hungry..."));
             }
         }
         girlfriend.spawnHeartParticles();
-        World world = player.getEntityWorld();
-        if (!world.isClient() && player instanceof ServerPlayerEntity spe) {
+        Level world = player.level();
+        if (!world.isClientSide() && player instanceof ServerPlayer spe) {
             DelayedChatReply.sendImmediate(spe, girlfriend, HugAndHitResponses.pickHug(girlfriend), false);
         }
     }
@@ -96,28 +99,28 @@ public class EntityInteractionHandler {
             "This is so thoughtful of you.",
             "You always know how to make me smile."
         };
-        return responses[girlfriend.getEntityWorld().getRandom().nextInt(responses.length)];
+        return responses[girlfriend.level().getRandom().nextInt(responses.length)];
     }
 
     private static boolean isFood(ItemStack stack) {
-        return stack.isOf(Items.APPLE) || stack.isOf(Items.GOLDEN_APPLE) ||
-               stack.isOf(Items.WHEAT) || stack.isOf(Items.BREAD) ||
-               stack.isOf(Items.CARROT) || stack.isOf(Items.POTATO) ||
-               stack.isOf(Items.BAKED_POTATO) || stack.isOf(Items.PUMPKIN_PIE) ||
-               stack.isOf(Items.CAKE) || stack.isOf(Items.HONEY_BOTTLE) ||
-               stack.isOf(Items.MELON_SLICE) || stack.isOf(Items.BEEF) ||
-               stack.isOf(Items.COOKED_BEEF) || stack.isOf(Items.PORKCHOP) ||
-               stack.isOf(Items.COOKED_PORKCHOP) || stack.isOf(Items.CHICKEN) ||
-               stack.isOf(Items.COOKED_CHICKEN);
+        return stack.is(Items.APPLE) || stack.is(Items.GOLDEN_APPLE) ||
+               stack.is(Items.WHEAT) || stack.is(Items.BREAD) ||
+               stack.is(Items.CARROT) || stack.is(Items.POTATO) ||
+               stack.is(Items.BAKED_POTATO) || stack.is(Items.PUMPKIN_PIE) ||
+               stack.is(Items.CAKE) || stack.is(Items.HONEY_BOTTLE) ||
+               stack.is(Items.MELON_SLICE) || stack.is(Items.BEEF) ||
+               stack.is(Items.COOKED_BEEF) || stack.is(Items.PORKCHOP) ||
+               stack.is(Items.COOKED_PORKCHOP) || stack.is(Items.CHICKEN) ||
+               stack.is(Items.COOKED_CHICKEN);
     }
 
     private static boolean isGift(ItemStack stack) {
-        return stack.isOf(Items.POPPY) || stack.isOf(Items.DANDELION) || stack.isOf(Items.BLUE_ORCHID) ||
-               stack.isOf(Items.ALLIUM) || stack.isOf(Items.AZURE_BLUET) || stack.isOf(Items.RED_TULIP) ||
-               stack.isOf(Items.ORANGE_TULIP) || stack.isOf(Items.PINK_TULIP) || stack.isOf(Items.WHITE_TULIP) ||
-               stack.isOf(Items.LILAC) || stack.isOf(Items.ROSE_BUSH) || stack.isOf(Items.PEONY) ||
-               stack.isOf(Items.SUNFLOWER) || stack.isOf(Items.CORNFLOWER) || stack.isOf(Items.LILY_OF_THE_VALLEY) ||
-               stack.isOf(Items.TORCHFLOWER) || stack.isOf(Items.PITCHER_PLANT) || stack.isOf(Items.EMERALD) ||
-               stack.isOf(Items.DIAMOND) || stack.isOf(Items.AMETHYST_SHARD);
+        return stack.is(Items.POPPY) || stack.is(Items.DANDELION) || stack.is(Items.BLUE_ORCHID) ||
+               stack.is(Items.ALLIUM) || stack.is(Items.AZURE_BLUET) || stack.is(Items.RED_TULIP) ||
+               stack.is(Items.ORANGE_TULIP) || stack.is(Items.PINK_TULIP) || stack.is(Items.WHITE_TULIP) ||
+               stack.is(Items.LILAC) || stack.is(Items.ROSE_BUSH) || stack.is(Items.PEONY) ||
+               stack.is(Items.SUNFLOWER) || stack.is(Items.CORNFLOWER) || stack.is(Items.LILY_OF_THE_VALLEY) ||
+               stack.is(Items.TORCHFLOWER) || stack.is(Items.PITCHER_PLANT) || stack.is(Items.EMERALD) ||
+               stack.is(Items.DIAMOND) || stack.is(Items.AMETHYST_SHARD);
     }
 }

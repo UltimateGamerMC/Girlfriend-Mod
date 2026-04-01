@@ -1,7 +1,7 @@
 package com.beckytidus.girlfriendmod.dialogue;
 
 import com.beckytidus.girlfriendmod.entity.GirlFriendEntity;
-import net.minecraft.world.World;
+import net.minecraft.world.level.Level;
 
 public final class WaitAndFollowLines {
     private static final String[] WAIT_HERE = new String[]{
@@ -292,12 +292,12 @@ public final class WaitAndFollowLines {
     };
 
     public static String pickWaitHere(GirlFriendEntity gf) {
-        World w = gf.getEntityWorld();
+        Level w = gf.level();
         return WAIT_HERE[w.getRandom().nextInt(WAIT_HERE.length)];
     }
 
     public static String pickFollowYou(GirlFriendEntity gf) {
-        World w = gf.getEntityWorld();
+        Level w = gf.level();
         return FOLLOW_YOU[w.getRandom().nextInt(FOLLOW_YOU.length)];
     }
 }
