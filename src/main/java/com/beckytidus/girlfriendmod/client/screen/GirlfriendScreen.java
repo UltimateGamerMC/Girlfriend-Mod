@@ -19,7 +19,7 @@ import net.minecraft.network.chat.Component;
 @Environment(EnvType.CLIENT)
 public class GirlfriendScreen extends Screen {
     private static final int PANEL_W = 330;
-    private static final int PANEL_H = 214;
+    private static final int PANEL_H = 232;
     private static final int PINK = 0xFFFF7EB6;
     private static final int TEXT = 0xFFEDE3F0;
     private static final int MUTED = 0xFFA99BB0;
