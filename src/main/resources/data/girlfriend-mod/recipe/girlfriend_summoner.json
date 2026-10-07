@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " D ",
+    "PHP",
+    " D "
+  ],
+  "key": {
+    "D": "minecraft:diamond",
+    "H": "minecraft:heart_of_the_sea",
+    "P": "minecraft:poppy"
+  },
+  "result": {
+    "id": "girlfriend-mod:girlfriend_summoner",
+    "count": 1
+  }
+}

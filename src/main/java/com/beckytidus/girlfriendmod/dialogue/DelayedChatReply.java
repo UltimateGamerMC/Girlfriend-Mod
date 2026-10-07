@@ -1,7 +1,7 @@
 package com.beckytidus.girlfriendmod.dialogue;
 
 import com.beckytidus.girlfriendmod.entity.GirlFriendEntity;
-import net.minecraft.network.chat.Component;
+import com.beckytidus.girlfriendmod.util.GirlfriendText;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -10,7 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public final class DelayedChatReply {
-    private static final int TYPING_DELAY_TICKS = 20;
+    private static final int TYPING_DELAY_TICKS = 30;
     private static final List<PendingReply> pending = new ArrayList<>();
 
     public static void schedule(ServerPlayer player, GirlFriendEntity gf, String message) {
@@ -26,7 +26,7 @@ public final class DelayedChatReply {
     public static void sendImmediate(ServerPlayer player, GirlFriendEntity gf, String message, boolean runChatResponse) {
         if (player.hasDisconnected() || !gf.isAlive()) return;
         if (gf.level() != player.level()) return;
-        player.sendSystemMessage(Component.literal("♥ " + gf.getDisplayNameForChat() + ": " + message));
+        player.sendSystemMessage(GirlfriendText.speech(gf.getDisplayNameForChat(), message));
         if (runChatResponse) gf.onChatResponse();
     }
 
@@ -39,7 +39,7 @@ public final class DelayedChatReply {
                 it.remove();
                 if (p.player.hasDisconnected() || !p.gf.isAlive()) continue;
                 if (p.gf.level() != p.player.level()) continue;
-                p.player.sendSystemMessage(Component.literal("♥ " + p.gf.getDisplayNameForChat() + ": " + p.message));
+                p.player.sendSystemMessage(GirlfriendText.speech(p.gf.getDisplayNameForChat(), p.message));
                 if (p.runChatResponse) p.gf.onChatResponse();
             }
         }

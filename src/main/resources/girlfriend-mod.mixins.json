@@ -1,1 +1,1 @@
-{"required":true,"package":"com.beckytidus.girlfriendmod.mixin","compatibilityLevel":"JAVA_25","mixins":[],"client":["EntityRenderDispatcherGirlfriendMixin","GuiGirlfriendStatsMixin"],"injectors":{"defaultRequire":1},"overwrites":{"requireAnnotations":true}}
+{"required":true,"package":"com.beckytidus.girlfriendmod.mixin","compatibilityLevel":"JAVA_25","mixins":[],"client":["EntityRenderDispatcherGirlfriendMixin"],"injectors":{"defaultRequire":1},"overwrites":{"requireAnnotations":true}}

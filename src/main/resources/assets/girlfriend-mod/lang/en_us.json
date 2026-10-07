@@ -1,10 +1,4 @@
 {
   "item.girlfriend-mod.girlfriend_summoner": "Girlfriend Summoner",
-  "entity.girlfriend-mod.girlfriend": "Girlfriend",
-  "chat.girlfriend-mod.summoned": "Girlfriend summoned!",
-  "chat.girlfriend-mod.fed": "Girlfriend is happy!",
-  "chat.girlfriend-mod.following": "Girlfriend is following you",
-  "chat.girlfriend-mod.waiting": "Girlfriend is waiting",
-  "chat.girlfriend-mod.damaged": "Girlfriend was hurt!",
-  "chat.girlfriend-mod.defeated": "Girlfriend has fallen..."
+  "entity.girlfriend-mod.girlfriend": "Girlfriend"
 }

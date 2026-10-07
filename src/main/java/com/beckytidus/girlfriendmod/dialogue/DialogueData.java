@@ -6457,38 +6457,48 @@ public final class DialogueData {
     public static String pickReply(String content, GirlFriendEntity gf, float roll) {
         if (content == null || content.isEmpty()) return null;
         String lower = content.toLowerCase(Locale.ROOT);
-        int hunger = gf.getHunger();
         for (DialogueEntry e : ENTRIES) {
-            if (e.matches(lower)) {
-                String waitFollow = e.getWaitFollowType();
-                if ("stay".equals(waitFollow)) return WaitAndFollowLines.pickWaitHere(gf);
-                if ("follow".equals(waitFollow)) return WaitAndFollowLines.pickFollowYou(gf);
+            if (e.getWaitFollowType() == null && e.matches(lower)) {
                 return e.randomResponse(roll);
             }
         }
-        if (hunger < 30 && roll < 0.5f) {
-            return "I'm kind of hungry... Got any food?";
+        return null;
+    }
+
+    /** "stay" / "follow" style commands typed in chat, or null. */
+    public static String commandIn(String content) {
+        String lower = content.toLowerCase(Locale.ROOT);
+        for (DialogueEntry e : ENTRIES) {
+            String type = e.getWaitFollowType();
+            if (type != null && e.matches(lower)) return type;
         }
         return null;
     }
 
     public static final class DialogueEntry {
         private final String[] keywords;
+        private final java.util.regex.Pattern pattern;
         private final String[] responses;
         DialogueEntry(String[] keywords, String[] responses) {
             this.keywords = keywords;
             this.responses = responses;
+            StringBuilder regex = new StringBuilder();
+            for (String k : keywords) {
+                if (k == null || k.isBlank()) continue;
+                if (regex.length() > 0) regex.append('|');
+                regex.append(java.util.regex.Pattern.quote(k.strip().toLowerCase(Locale.ROOT)));
+            }
+            // Whole words only: "end" must not fire on "friend", "day" not on "today".
+            this.pattern = java.util.regex.Pattern.compile("(?<![a-z0-9])(?:" + regex + ")(?![a-z0-9])");
         }
         boolean matches(String content) {
-            for (String k : keywords) {
-                if (k != null && !k.isEmpty() && content.contains(k)) return true;
-            }
-            return false;
+            return pattern.matcher(content).find();
         }
         String getWaitFollowType() {
             for (String k : keywords) {
-                if ("stay".equals(k) || "wait here".equals(k) || "don't move".equals(k)) return "stay";
-                if ("follow".equals(k) || "following".equals(k) || "come with".equals(k) || "come".equals(k) || "follow me".equals(k) || "come here".equals(k)) return "follow";
+                String key = k.strip();
+                if ("stay".equals(key) || "wait here".equals(key) || "don't move".equals(key)) return "stay";
+                if ("follow".equals(key) || "following".equals(key) || "come with".equals(key) || "follow me".equals(key) || "come here".equals(key)) return "follow";
             }
             return null;
         }
