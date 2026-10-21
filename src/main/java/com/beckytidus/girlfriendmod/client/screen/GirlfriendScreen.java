@@ -30,6 +30,7 @@ public class GirlfriendScreen extends Screen {
     private Button followButton;
     private Button sitButton;
     private Button friendlyFireButton;
+    private Button giftsButton;
     private Button forgiveButton;
     private Button lookButton;
     private int left;
@@ -62,8 +63,9 @@ public class GirlfriendScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Dance"), b -> send("dance")).bounds(x + 168, y, bw, 20).build());
 
         y += 24;
-        followButton = addRenderableWidget(Button.builder(Component.empty(), b -> send("follow")).bounds(x, y, 108, 20).build());
-        sitButton = addRenderableWidget(Button.builder(Component.empty(), b -> send("sit")).bounds(x + 112, y, 108, 20).build());
+        followButton = addRenderableWidget(Button.builder(Component.empty(), b -> send("follow")).bounds(x, y, 72, 20).build());
+        sitButton = addRenderableWidget(Button.builder(Component.empty(), b -> send("sit")).bounds(x + 74, y, 72, 20).build());
+        giftsButton = addRenderableWidget(Button.builder(Component.empty(), b -> send("gifts")).bounds(x + 148, y, 72, 20).build());
 
         y += 24;
         friendlyFireButton = addRenderableWidget(Button.builder(Component.empty(), b -> send("friendlyfire")).bounds(x, y, 108, 20).build());
@@ -108,9 +110,10 @@ public class GirlfriendScreen extends Screen {
     }
 
     private void refreshLabels() {
-        followButton.setMessage(Component.literal(girlfriend.isFollowingOwner() ? "Following you" : "Waiting here"));
+        followButton.setMessage(Component.literal(girlfriend.isFollowingOwner() ? "Following" : "Waiting"));
         sitButton.setMessage(Component.literal(girlfriend.isSitting() ? "Stand up" : "Sit down"));
         friendlyFireButton.setMessage(Component.literal("Your hits: " + (girlfriend.isFriendlyFire() ? "hurt her" : "harmless")));
+        giftsButton.setMessage(Component.literal("Gifts: " + (girlfriend.isGiftsEnabled() ? "on" : "off")));
         forgiveButton.active = girlfriend.isSulking();
         boolean playerSkin = !girlfriend.getSkinOwnerName().isEmpty();
         lookButton.setMessage(Component.literal(playerSkin ? "Skin: " + girlfriend.getSkinOwnerName() + " (reset)" : "Look " + currentLook() + " / " + GirlfriendSkins.TEXTURE_COUNT));

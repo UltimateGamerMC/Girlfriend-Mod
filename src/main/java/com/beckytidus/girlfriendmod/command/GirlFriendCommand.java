@@ -100,6 +100,17 @@ public class GirlFriendCommand {
                 reply(context, gf.isFriendlyFire() ? "Your hits can now hurt " + gf.getDisplayNameForChat() + " (she'll sulk, never fight back)." : gf.getDisplayNameForChat() + " is now immune to your hits.");
                 return 1;
             })))
+            .then(Commands.literal("gifts").then(Commands.argument("enabled", BoolArgumentType.bool()).executes(context -> {
+                GirlFriendEntity gf = closest(context);
+                gf.setGiftsEnabled(BoolArgumentType.getBool(context, "enabled"));
+                reply(context, gf.isGiftsEnabled() ? gf.getDisplayNameForChat() + " may give you gifts." : gf.getDisplayNameForChat() + " won't give you gifts or pick flowers.");
+                return 1;
+            })))
+            .then(Commands.literal("reload").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(context -> {
+                com.beckytidus.girlfriendmod.config.GirlfriendConfig.load();
+                reply(context, "Reloaded config/girlfriend-mod.json");
+                return 1;
+            }))
             .then(Commands.literal("relationship").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                 .then(Commands.argument("level", IntegerArgumentType.integer(0, 100)).executes(context -> {
                     closest(context).setRelationshipLevel(IntegerArgumentType.getInteger(context, "level"));

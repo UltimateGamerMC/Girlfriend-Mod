@@ -47,6 +47,12 @@ public final class GirlfriendActions {
                 gf.playCute(SoundEvents.NOTE_BLOCK_BELL.value(), 1.2f);
                 gf.setMoodLevel(gf.getMoodLevel() + 5);
             }
+            case "gifts" -> {
+                gf.setGiftsEnabled(!gf.isGiftsEnabled());
+                player.sendSystemMessage(GirlfriendText.info(gf.isGiftsEnabled()
+                    ? gf.getDisplayNameForChat() + " may give you gifts again."
+                    : gf.getDisplayNameForChat() + " won't give you gifts or pick flowers anymore."));
+            }
             case "follow" -> gf.toggle();
             case "sit" -> gf.toggleSit();
             case "forgive" -> gf.forgive();

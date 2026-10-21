@@ -2,6 +2,7 @@ package com.beckytidus.girlfriendmod;
 
 import com.beckytidus.girlfriendmod.chat.GirlfriendChatHandler;
 import com.beckytidus.girlfriendmod.command.GirlFriendCommand;
+import com.beckytidus.girlfriendmod.config.GirlfriendConfig;
 import com.beckytidus.girlfriendmod.dialogue.DelayedChatReply;
 import com.beckytidus.girlfriendmod.entity.GirlFriendEntity;
 import com.beckytidus.girlfriendmod.network.GirlfriendActions;
@@ -25,6 +26,7 @@ public class GirlfriendMod implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		GirlfriendConfig.load();
 		EntityRegistry.register();
 		ItemRegistry.register();
 		FabricDefaultAttributeRegistry.register(EntityRegistry.GIRLFRIEND, GirlFriendEntity.createGirlfriendAttributes());

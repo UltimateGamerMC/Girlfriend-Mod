@@ -33,22 +33,22 @@ public class GirlfriendModel extends PlayerModel {
                 }
             }
             case GirlFriendEntity.EMOTE_WAVE -> {
-                rightArm.xRot = -2.9f;
-                rightArm.zRot = 0.25f + Mth.sin(t * 0.9f) * 0.35f;
+                rightArm.xRot = -0.8f;
+                rightArm.zRot = 2.0f + Mth.sin(t * 0.9f) * 0.25f;
             }
             case GirlFriendEntity.EMOTE_DANCE -> {
                 float beat = Mth.sin(t * 0.5f);
-                rightArm.xRot = -2.6f + beat * 0.5f;
-                leftArm.xRot = -2.6f - beat * 0.5f;
-                rightArm.zRot = 0.3f;
-                leftArm.zRot = -0.3f;
+                rightArm.xRot = -0.8f + beat * 0.2f;
+                leftArm.xRot = -0.8f - beat * 0.2f;
+                rightArm.zRot = 2.0f + beat * 0.25f;
+                leftArm.zRot = -2.0f + beat * 0.25f;
                 body.zRot = beat * 0.12f;
                 head.zRot = -beat * 0.15f;
             }
             case GirlFriendEntity.EMOTE_NOD -> head.xRot = Mth.sin(t * 0.8f) * 0.3f;
             case GirlFriendEntity.EMOTE_HIGHFIVE -> {
-                rightArm.xRot = -2.4f;
-                rightArm.zRot = -0.2f;
+                rightArm.xRot = -2.0f;
+                rightArm.zRot = -0.35f;
             }
             case GirlFriendEntity.EMOTE_POUT -> {
                 rightArm.xRot = -0.85f;

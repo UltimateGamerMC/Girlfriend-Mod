@@ -42,6 +42,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import com.beckytidus.girlfriendmod.config.GirlfriendConfig;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
@@ -98,6 +100,7 @@ public class GirlFriendEntity extends PathfinderMob {
     private static final EntityDataAccessor<Optional<EntityReference<LivingEntity>>> OWNER = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.OPTIONAL_LIVING_ENTITY_REFERENCE);
     private static final EntityDataAccessor<Boolean> SITTING = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> FOLLOWING = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> GIFTS_ENABLED = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> FRIENDLY_FIRE = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> SULK_TICKS_DATA = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> AFFECTION = SynchedEntityData.defineId(GirlFriendEntity.class, EntityDataSerializers.INT);
@@ -141,7 +144,17 @@ public class GirlFriendEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.1, false));
+        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.1, false) {
+            @Override
+            public boolean canUse() {
+                return withinGuardRange() && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return withinGuardRange() && super.canContinueToUse();
+            }
+        });
         this.goalSelector.addGoal(2, new FollowOwnerGoal());
         this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(4, new PickFlowerGoal());
@@ -157,7 +170,13 @@ public class GirlFriendEntity extends PathfinderMob {
 
         this.targetSelector.addGoal(1, new DefendOwnerGoal());
         this.targetSelector.addGoal(2, new HurtByTargetGoal(this));
-        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, true));
+        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, true) {
+            @Override
+            public boolean canUse() {
+                // when told to wait or sit she does not go looking for fights
+                return !isHoldingPosition() && super.canUse();
+            }
+        });
     }
 
     @Override
@@ -171,6 +190,7 @@ public class GirlFriendEntity extends PathfinderMob {
         builder.define(SITTING, false);
         builder.define(FOLLOWING, true);
         builder.define(FRIENDLY_FIRE, false);
+        builder.define(GIFTS_ENABLED, true);
         builder.define(SULK_TICKS_DATA, 0);
         builder.define(AFFECTION, 50);
         builder.define(HUNGER, 80);
@@ -199,6 +219,7 @@ public class GirlFriendEntity extends PathfinderMob {
         output.putInt("Hunger", getHunger());
         output.putLong("LastHungerDecayTick", lastHungerDecayTick);
         output.putBoolean("FriendlyFire", isFriendlyFire());
+        output.putBoolean("GiftsEnabled", isGiftsEnabled());
         output.putInt("SulkTicks", getSulkTicks());
         output.putLong("LastDeathSaveDay", lastDeathSaveDay);
         output.putLong("LastGoodnightDay", lastGoodnightDay);
@@ -224,6 +245,7 @@ public class GirlFriendEntity extends PathfinderMob {
         setHunger(input.getIntOr("Hunger", 80));
         lastHungerDecayTick = input.getLongOr("LastHungerDecayTick", 0);
         entityData.set(FRIENDLY_FIRE, input.getBooleanOr("FriendlyFire", false));
+        entityData.set(GIFTS_ENABLED, input.getBooleanOr("GiftsEnabled", true));
         entityData.set(SULK_TICKS_DATA, input.getIntOr("SulkTicks", 0));
         lastDeathSaveDay = input.getLongOr("LastDeathSaveDay", -1);
         lastGoodnightDay = input.getLongOr("LastGoodnightDay", -1);
@@ -440,7 +462,7 @@ public class GirlFriendEntity extends PathfinderMob {
 
         @Override
         public boolean canUse() {
-            if (getTarget() != null) return false;
+            if (isHoldingPosition() || getTarget() != null) return false;
             return findThreat() != null;
         }
 
@@ -469,9 +491,10 @@ public class GirlFriendEntity extends PathfinderMob {
         @Override
         public boolean canUse() {
             Player owner = getOwner();
+            if (!giftsActive() || !GirlfriendConfig.get().pickFlowers) return false;
             if (owner == null || !isFollowingOwner() || isSitting() || isSulking() || getTarget() != null) return false;
             if (distanceToSqr(owner) > 16 * 16) return false;
-            if (getWorldTime() - lastGiftTick < GIFT_MIN_INTERVAL_TICKS) return false;
+            if (getWorldTime() - lastGiftTick < scaledGiftInterval(GIFT_MIN_INTERVAL_TICKS)) return false;
             if (getRandom().nextInt(400) != 0) return false;
             flower = findFlower();
             return flower != null;
@@ -559,6 +582,7 @@ public class GirlFriendEntity extends PathfinderMob {
         }
 
         tickEmote();
+        enforceHoldPosition();
         Player owner = getOwner();
         if (owner == null) return;
         setPersistenceRequired();
@@ -617,8 +641,8 @@ public class GirlFriendEntity extends PathfinderMob {
             lastPhraseTick = now;
         }
 
-        int giftInterval = Math.max(GIFT_MIN_INTERVAL_TICKS, 6000 - getRelationshipLevel() * 36);
-        if (now - lastGiftTick >= giftInterval && getRandom().nextFloat() < 0.02f) {
+        int giftInterval = scaledGiftInterval(Math.max(GIFT_MIN_INTERVAL_TICKS, 6000 - getRelationshipLevel() * 36));
+        if (giftsActive() && now - lastGiftTick >= giftInterval && getRandom().nextFloat() < 0.02f) {
             giveRandomGift();
             lastGiftTick = now;
         }
@@ -777,23 +801,71 @@ public class GirlFriendEntity extends PathfinderMob {
 
     private void giveRandomGift() {
         RelationshipTier tier = getRelationshipTier();
-        Item[] pool;
+        Item[] base;
         if (tier.atLeast(RelationshipTier.FOREVER)) {
-            pool = new Item[]{Items.DIAMOND, Items.EMERALD, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE, Items.TOTEM_OF_UNDYING, Items.NETHERITE_SCRAP};
+            base = new Item[]{Items.DIAMOND, Items.EMERALD, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE, Items.TOTEM_OF_UNDYING, Items.NETHERITE_SCRAP};
         } else if (tier.atLeast(RelationshipTier.PARTNER)) {
-            pool = new Item[]{Items.DIAMOND, Items.EMERALD, Items.GOLDEN_APPLE, Items.GOLDEN_CARROT, Items.EXPERIENCE_BOTTLE, Items.CAKE};
+            base = new Item[]{Items.DIAMOND, Items.EMERALD, Items.GOLDEN_APPLE, Items.GOLDEN_CARROT, Items.EXPERIENCE_BOTTLE, Items.CAKE};
         } else if (tier.atLeast(RelationshipTier.CRUSH)) {
-            pool = new Item[]{Items.EMERALD, Items.AMETHYST_SHARD, Items.COOKIE, Items.PUMPKIN_PIE, Items.IRON_INGOT, Items.GOLD_INGOT};
+            base = new Item[]{Items.EMERALD, Items.AMETHYST_SHARD, Items.COOKIE, Items.PUMPKIN_PIE, Items.IRON_INGOT, Items.GOLD_INGOT};
         } else {
-            pool = new Item[]{Items.COOKIE, Items.APPLE, Items.POPPY, Items.DANDELION, Items.SWEET_BERRIES};
+            base = new Item[]{Items.COOKIE, Items.APPLE, Items.POPPY, Items.DANDELION, Items.SWEET_BERRIES};
         }
-        ItemStack gift = new ItemStack(pool[getRandom().nextInt(pool.length)]);
+        GirlfriendConfig config = GirlfriendConfig.get();
+        java.util.List<Item> pool = new java.util.ArrayList<>(java.util.Arrays.asList(base));
+        for (String id : config.extraGiftItems) {
+            Identifier key = Identifier.tryParse(id.strip());
+            if (key != null) BuiltInRegistries.ITEM.getOptional(key).ifPresent(item -> { if (item != Items.AIR) pool.add(item); });
+        }
+        pool.removeIf(item -> config.blockedGiftItems.contains(BuiltInRegistries.ITEM.getKey(item).toString()));
+        if (pool.isEmpty()) return;
+        ItemStack gift = new ItemStack(pool.get(getRandom().nextInt(pool.size())));
         if (gift.is(Items.COOKIE)) gift.setCount(3);
         giveToOwner(gift);
         narrate(pick("slips a " + gift.getHoverName().getString() + " into your pocket", "made you a little present: " + gift.getHoverName().getString(),
             "found a " + gift.getHoverName().getString() + " and thought of you"));
         playCute(SoundEvents.ALLAY_AMBIENT_WITH_ITEM, 1.0f);
         addRelationship(2);
+    }
+
+    /** True when she is allowed to give gifts at all: the server config and her own switch both have to be on. */
+    public boolean giftsActive() {
+        return GirlfriendConfig.get().giftsEnabled && isGiftsEnabled();
+    }
+
+    private static int scaledGiftInterval(int ticks) {
+        return (int) Math.max(1, ticks / Math.max(0.05, GirlfriendConfig.get().giftFrequency));
+    }
+
+    public boolean isGiftsEnabled() {
+        return entityData.get(GIFTS_ENABLED);
+    }
+
+    public void setGiftsEnabled(boolean enabled) {
+        entityData.set(GIFTS_ENABLED, enabled);
+    }
+
+    // ---------------------------------------------------------------- holding position
+
+    private static final double HOLD_GUARD_RANGE = 3.5;
+
+    /** "Wait here" or sitting: she stays put and only deals with things that come right up to her. */
+    private boolean isHoldingPosition() {
+        return !isFollowingOwner() || isSitting();
+    }
+
+    private boolean withinGuardRange() {
+        LivingEntity target = getTarget();
+        return target == null || !isHoldingPosition() || distanceToSqr(target) <= HOLD_GUARD_RANGE * HOLD_GUARD_RANGE;
+    }
+
+    private void enforceHoldPosition() {
+        if (level().isClientSide() || !isHoldingPosition()) return;
+        LivingEntity target = getTarget();
+        if (target != null && distanceToSqr(target) > (HOLD_GUARD_RANGE + 2.5) * (HOLD_GUARD_RANGE + 2.5)) {
+            setTarget(null);
+            getNavigation().stop();
+        }
     }
 
     public void feedEntity(ItemStack stack) {
