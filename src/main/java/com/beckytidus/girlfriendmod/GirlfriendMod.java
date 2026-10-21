@@ -9,7 +9,7 @@ import com.beckytidus.girlfriendmod.network.GirlfriendActions;
 import com.beckytidus.girlfriendmod.registry.EntityRegistry;
 import com.beckytidus.girlfriendmod.registry.ItemRegistry;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -51,7 +51,7 @@ public class GirlfriendMod implements ModInitializer {
 			}
 		});
 
-		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.SPAWN_EGGS).register(output -> output.accept(ItemRegistry.GIRLFRIEND_SUMMONER));
-		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> output.accept(ItemRegistry.GIRLFRIEND_SUMMONER));
+		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.SPAWN_EGGS).register(output -> output.accept(ItemRegistry.GIRLFRIEND_SUMMONER));
+		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> output.accept(ItemRegistry.GIRLFRIEND_SUMMONER));
 	}
 }

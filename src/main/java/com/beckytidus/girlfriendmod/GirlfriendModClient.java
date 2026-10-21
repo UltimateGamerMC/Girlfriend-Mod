@@ -16,6 +16,6 @@ public class GirlfriendModClient implements ClientModInitializer {
     public void onInitializeClient() {
         EntityRendererRegistry.register(EntityRegistry.GIRLFRIEND, GirlFriendEntityRenderer::new);
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(GirlfriendMod.MOD_ID, "bond_card"), GirlfriendHud::extract);
-        EntityInteractionHandler.openMenu = gf -> Minecraft.getInstance().gui.setScreen(new GirlfriendScreen(gf));
+        EntityInteractionHandler.openMenu = gf -> Minecraft.getInstance().setScreen(new GirlfriendScreen(gf));
     }
 }

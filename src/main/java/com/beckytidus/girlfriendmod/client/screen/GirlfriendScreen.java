@@ -8,7 +8,7 @@ import com.beckytidus.girlfriendmod.util.RelationshipTier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -131,32 +131,32 @@ public class GirlfriendScreen extends Screen {
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        super.extractBackground(graphics, mouseX, mouseY, a);
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float a) {
+        super.renderBackground(graphics, mouseX, mouseY, a);
         graphics.fill(left - 1, top - 1, left + PANEL_W + 1, top + PANEL_H + 1, PINK);
         graphics.fill(left, top, left + PANEL_W, top + PANEL_H, 0xF0201820);
         graphics.fill(left + 6, top + 6, left + 98, top + PANEL_H - 34, 0xFF2C2230);
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        super.extractRenderState(graphics, mouseX, mouseY, a);
-        InventoryScreen.extractEntityInInventoryFollowsMouse(graphics, left + 8, top + 8, left + 96, top + PANEL_H - 36, 42, 0.0625F, mouseX, mouseY, girlfriend);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
+        super.render(graphics, mouseX, mouseY, a);
+        InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, left + 8, top + 8, left + 96, top + PANEL_H - 36, 42, 0.0625F, mouseX, mouseY, girlfriend);
 
         RelationshipTier tier = girlfriend.getRelationshipTier();
         int x = left + 104;
-        graphics.text(font, Component.literal(girlfriend.getDisplayNameForChat()).withColor(0xF5A9F2), x, top + 9, PINK, true);
-        graphics.text(font, Component.literal(tier.title).withStyle(tier.color), x + font.width(girlfriend.getDisplayNameForChat()) + 6, top + 9, TEXT, true);
-        graphics.text(font, GirlfriendText.hearts(girlfriend.getRelationshipLevel(), 100, 10).append(Component.literal("  " + girlfriend.getRelationshipLevel() + "/100").withColor(MUTED)), x, top + 21, TEXT, false);
+        graphics.drawString(font, Component.literal(girlfriend.getDisplayNameForChat()).withColor(0xF5A9F2), x, top + 9, PINK, true);
+        graphics.drawString(font, Component.literal(tier.title).withStyle(tier.color), x + font.width(girlfriend.getDisplayNameForChat()) + 6, top + 9, TEXT, true);
+        graphics.drawString(font, GirlfriendText.hearts(girlfriend.getRelationshipLevel(), 100, 10).append(Component.literal("  " + girlfriend.getRelationshipLevel() + "/100").withColor(MUTED)), x, top + 21, TEXT, false);
         bar(graphics, x, top + 34, "Mood", girlfriend.getMoodLevel(), 0xFFFFB3D9);
         bar(graphics, x, top + 44, "Hunger", girlfriend.getHunger(), 0xFFFFD27F);
         bar(graphics, x, top + 54, "Health", (int) (100 * girlfriend.getHealth() / girlfriend.getMaxHealth()), 0xFF8EE89A);
         String status = girlfriend.isSulking() ? "She's sulking... maybe a gift or a sorry?" : tier.perk;
-        graphics.text(font, font.plainSubstrByWidth(status, 220), x, top + 65, MUTED, false);
+        graphics.drawString(font, font.plainSubstrByWidth(status, 220), x, top + 65, MUTED, false);
     }
 
-    private void bar(GuiGraphicsExtractor graphics, int x, int y, String label, int value, int color) {
-        graphics.text(font, label, x, y, MUTED, false);
+    private void bar(GuiGraphics graphics, int x, int y, String label, int value, int color) {
+        graphics.drawString(font, label, x, y, MUTED, false);
         int bx = x + 40;
         graphics.fill(bx, y + 2, bx + 100, y + 7, 0xFF3A2E3E);
         graphics.fill(bx, y + 2, bx + Math.max(0, Math.min(100, value)), y + 7, color);

@@ -19,7 +19,7 @@ public final class GirlfriendActions {
     }
 
     public static void register() {
-        PayloadTypeRegistry.serverboundPlay().register(GirlfriendActionPayload.TYPE, GirlfriendActionPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(GirlfriendActionPayload.TYPE, GirlfriendActionPayload.STREAM_CODEC);
         ServerPlayNetworking.registerGlobalReceiver(GirlfriendActionPayload.TYPE, (payload, context) -> handle(context.player(), payload));
     }
 

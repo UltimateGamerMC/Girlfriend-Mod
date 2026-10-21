@@ -85,7 +85,7 @@ public class EntityInteractionHandler {
     }
 
     private static String giftResponse(GirlFriendEntity gf, ItemStack stack) {
-        if (stack.is(net.minecraft.tags.BlockItemTags.FLOWERS.item())) {
+        if (stack.is(net.minecraft.tags.ItemTags.FLOWERS)) {
             String[] lines = {"Flowers?! For me? *tucks one behind her ear*", "They're beautiful... like you.", "I'm going to press these and keep them forever!"};
             return lines[gf.getRandom().nextInt(lines.length)];
         }
@@ -105,6 +105,6 @@ public class EntityInteractionHandler {
     }
 
     private static boolean isGift(ItemStack stack) {
-        return stack.is(net.minecraft.tags.BlockItemTags.FLOWERS.item()) || stack.is(Items.EMERALD) || stack.is(Items.DIAMOND) || stack.is(Items.AMETHYST_SHARD);
+        return stack.is(net.minecraft.tags.ItemTags.FLOWERS) || stack.is(Items.EMERALD) || stack.is(Items.DIAMOND) || stack.is(Items.AMETHYST_SHARD);
     }
 }

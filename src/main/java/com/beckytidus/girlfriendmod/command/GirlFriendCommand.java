@@ -17,7 +17,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Prediction;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Comparator;
@@ -58,7 +57,7 @@ public class GirlFriendCommand {
             .then(Commands.literal("give").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(context -> {
                 ServerPlayer target = context.getSource().getPlayerOrException();
                 ItemStack stack = new ItemStack(ItemRegistry.GIRLFRIEND_SUMMONER);
-                if (!target.getInventory().add(stack)) target.drop(stack, false, Prediction.SERVER_ONLY);
+                if (!target.getInventory().add(stack)) target.drop(stack, false);
                 reply(context, "Gave a Girlfriend Summoner to " + target.getName().getString());
                 return 1;
             }))

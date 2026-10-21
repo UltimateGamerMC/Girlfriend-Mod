@@ -25,7 +25,6 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
-import net.minecraft.util.Prediction;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -695,7 +694,7 @@ public class GirlFriendEntity extends PathfinderMob {
     }
 
     private String randomIdleLine(Player owner) {
-        long time = level().getOverworldClockTime() % 24000;
+        long time = level().getDayTime() % 24000;
         if (level().isRaining() && getRandom().nextFloat() < 0.4f) {
             return pick("I love the sound of rain... especially with you.", "Wanna stay under a roof and listen to the rain?", "Rainy days are cuddle days. Just saying.");
         }
@@ -762,7 +761,7 @@ public class GirlFriendEntity extends PathfinderMob {
     public boolean tryRescueOwner(ServerPlayer owner) {
         if (!getRelationshipTier().atLeast(RelationshipTier.SOULMATE)) return false;
         if (!isAlive() || distanceToSqr(owner) > 24 * 24) return false;
-        long day = level().getOverworldClockTime() / 24000L;
+        long day = level().getDayTime() / 24000L;
         if (day == lastDeathSaveDay) return false;
         lastDeathSaveDay = day;
         owner.setHealth(6.0f);
@@ -780,7 +779,7 @@ public class GirlFriendEntity extends PathfinderMob {
     }
 
     public void onOwnerSleep() {
-        long day = level().getOverworldClockTime() / 24000L;
+        long day = level().getDayTime() / 24000L;
         if (day == lastGoodnightDay) return;
         lastGoodnightDay = day;
         say(pick("Goodnight~ Sweet dreams. I'll be right here.", "Sleep well. Dream of me, okay?", "*yawns* Night night~"));
@@ -795,7 +794,7 @@ public class GirlFriendEntity extends PathfinderMob {
         Player owner = getOwner();
         if (owner == null) return;
         if (!owner.getInventory().add(stack)) {
-            owner.drop(stack, false, Prediction.SERVER_ONLY);
+            owner.drop(stack, false);
         }
     }
 

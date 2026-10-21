@@ -5,7 +5,7 @@ import com.beckytidus.girlfriendmod.util.GirlfriendText;
 import com.beckytidus.girlfriendmod.util.RelationshipTier;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /** Small name / bond card under the crosshair while looking at your girlfriend. */
@@ -13,9 +13,9 @@ public final class GirlfriendHud {
     private GirlfriendHud() {
     }
 
-    public static void extract(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
+    public static void extract(GuiGraphics graphics, DeltaTracker deltaTracker) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.gui.hud.isHidden() || minecraft.player == null || minecraft.gui.screen() != null) return;
+        if (minecraft.options.hideGui || minecraft.player == null || minecraft.screen != null) return;
         if (!(minecraft.crosshairPickEntity instanceof GirlFriendEntity gf) || !gf.isAlive()) return;
         if (gf.distanceToSqr(minecraft.player) > 8 * 8) return;
 
@@ -35,8 +35,8 @@ public final class GirlfriendHud {
         int width = Math.max(minecraft.font.width(title), Math.max(minecraft.font.width(hearts), minecraft.font.width(hint))) + 10;
         int x0 = (w - width) / 2;
         graphics.fill(x0, y - 3, x0 + width, y + 31, 0x90180F1C);
-        graphics.text(minecraft.font, title, (w - minecraft.font.width(title)) / 2, y, 0xFFFFFFFF, true);
-        graphics.text(minecraft.font, hearts, (w - minecraft.font.width(hearts)) / 2, y + 10, 0xFFFFFFFF, true);
-        graphics.text(minecraft.font, hint, (w - minecraft.font.width(hint)) / 2, y + 20, 0xFFB8A9BE, false);
+        graphics.drawString(minecraft.font, title, (w - minecraft.font.width(title)) / 2, y, 0xFFFFFFFF, true);
+        graphics.drawString(minecraft.font, hearts, (w - minecraft.font.width(hearts)) / 2, y + 10, 0xFFFFFFFF, true);
+        graphics.drawString(minecraft.font, hint, (w - minecraft.font.width(hint)) / 2, y + 20, 0xFFB8A9BE, false);
     }
 }
